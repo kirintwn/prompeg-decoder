@@ -115,16 +115,17 @@ int main(int argc, char* argv[]) {
             if((bytes = recvfrom(media_Sockfd , media_RecvBuf , recvBufLen , 0 , NULL , 0)) < 0)
                 fuckUpSituation("recvfrom() failed");
 
-            rtp_parse(media_RecvBuf , bytes);
+            /*rtp_parse(media_RecvBuf , bytes);*/
 
             if (send(output_Sockfd , media_RecvBuf , bytes , 0) == -1)
-                perror("send");
+                /*perror("send");*/bytes = bytes;
         }
 
         if(FD_ISSET(fecRow_Sockfd , &read_fds)) {
             int bytes = 0;
             if((bytes = recvfrom(fecRow_Sockfd , fecRow_RecvBuf , recvBufLen , 0 , NULL , 0)) < 0)
                 fuckUpSituation("recvfrom() failed");
+            rtp_parse(fecRow_RecvBuf , bytes);    
         }
 
         if(FD_ISSET(fecCol_Sockfd , &read_fds)) {
