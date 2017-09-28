@@ -84,7 +84,6 @@ int mCastClientConnectSocket(char* multicastIP , char* multicastPort , int multi
         return -1;
     }
     defaultBuf = outputValue;
-    /*printf("%d" , defaultBuf);*/
 
     outputValue = multicastRecvBufSize;
     if(setsockopt(sockfd , SOL_SOCKET , SO_RCVBUF , (char*)&outputValue , sizeof(outputValue)) != 0) {
