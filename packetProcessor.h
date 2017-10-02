@@ -87,7 +87,7 @@ typedef struct fecPacket_ {
     uint8_t payload[1316];
 } __attribute__((packed , scalar_storage_order("big-endian"))) fecPacket_; /*1344 bytes*/
 
-void print_rtpPacket (rtpPacket_* rtpPacket) {
+void print_rtpPacket (rtpPacket_ *rtpPacket) {
     printf("   >> RTP\n");
     printf("      Version     : %i\n" , rtpPacket->rtpHeader.version);
     printf("      Padding     : %i\n" , rtpPacket->rtpHeader.padding);
@@ -99,7 +99,7 @@ void print_rtpPacket (rtpPacket_* rtpPacket) {
     printf("      Timestamp   : %u\n" , rtpPacket->rtpHeader.ts);
     printf("      SSRC        : %u\n" , rtpPacket->rtpHeader.ssrc);
 }
-void print_fecPacket (fecPacket_* fecPacket) {
+void print_fecPacket (fecPacket_ *fecPacket) {
     printf("   >> RTP\n");
     printf("      Version     : %i\n" , fecPacket->rtpHeader.version);
     printf("      Padding     : %i\n" , fecPacket->rtpHeader.padding);

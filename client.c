@@ -1,8 +1,8 @@
 /*
- * Usage:
- *     client <Multicast IP> <Multicast Port>
- * Examples:
- *     >client 233.0.41.102 20000
+  *Usage:
+  *    client <Multicast IP> <Multicast Port>
+  *Examples:
+  *    >client 233.0.41.102 20000
  */
 #include <unistd.h>
 #include <stdio.h>
@@ -24,9 +24,9 @@ int fecCol_Sockfd;
 
 int output_Sockfd;
 
-unsigned char* sockRecvBuf;
+unsigned char *sockRecvBuf;
 
-static void fuckUpSituation(const char* errorMsg) {
+static void fuckUpSituation(const char *errorMsg) {
     fprintf(stderr , "%s\n" , errorMsg);
     if(media_Sockfd >= 0)
         close(media_Sockfd);
@@ -48,11 +48,11 @@ int maximumOfThreeNum( int a, int b, int c ) {
    return ( ( max < c ) ? c : max );
 }
 
-int main(int argc, char* argv[]) {
-    char* multicastIP;
-    char* mediaPort;
-    char* fecRowPort = (char*)malloc(20);
-    char* fecColPort = (char*)malloc(20);
+int main(int argc, char *argv[]) {
+    char *multicastIP;
+    char *mediaPort;
+    char *fecRowPort = (char*)malloc(20);
+    char *fecColPort = (char*)malloc(20);
 
     int recvBufLen;
 
@@ -87,32 +87,22 @@ int main(int argc, char* argv[]) {
     fd_set read_fds;
     FD_ZERO(&master);
     FD_ZERO(&read_fds);
-
     FD_SET(media_Sockfd , &master);
     FD_SET(fecRow_Sockfd , &master);
     FD_SET(fecCol_Sockfd , &master);
     int fdmax = maximumOfThreeNum(media_Sockfd , fecRow_Sockfd , fecCol_Sockfd);
+    read_fds = master;
 
     recvBufLen = 1500;
-    sockRecvBuf = (unsigned char*)malloc(recvBufLen*sizeof(unsigned char));
+    sockRecvBuf = (unsigned char*)malloc(recvBufLen * sizeof(unsigned char));
 
-    int isFirstMedia;           /*Initialize: 1*/
-    uint16_t rtp_VPXCCMPT;      /*Initialize: 0b1000000000100001*/
-    uint32_t MEDIA_PARAM_SSRC;  /*Initialize: 0*/
-
-    queue_* emptyQueue = queue_construct();
-    queue_* mediaQueue = queue_construct();
-    queue_* fecQueue = queue_construct();
+    queue_ *emptyQueue = queue_construct();
+    queue_ *mediaQueue = queue_construct();
+    queue_ *fecQueue = queue_construct();
 
     for(int i = 0 ; i < 1000 ; i++) {
-        queueNode_* queueNode = (queueNode_*) malloc(2048 * sizeof(uint8_t));
-        queueNode -> data.size = 2048;
-        queueNode -> data.used = 0;
-        queueNode -> next = NULL;
-        queue_enqueue(emptyQueue , queueNode);
+        newNodeToEmptyQueue(emptyQueue);
     }
-
-    read_fds = master;
 
     for(;;) {
         read_fds = master;
@@ -123,39 +113,36 @@ int main(int argc, char* argv[]) {
             if((bytes = recvfrom(media_Sockfd , sockRecvBuf , recvBufLen , 0 , NULL , 0)) < 0)
                 fuckUpSituation("recvfrom() failed");
 
-            queueNode_* queueNode = queue_dequeue(emptyQueue);
-            queueNode -> next = NULL;
-            queueNode -> data.used = bytes;
-            memcpy(queueNode -> data.packetData , sockRecvBuf , bytes);
-            queue_enqueue(mediaQueue , queueNode);
+            storePacketToQueue(mediaQueue , emptyQueue , sockRecvBuf , bytes);
 
-
-            queueNode = queue_dequeue(mediaQueue);
-            rtpPacket_* rtpPacket = (rtpPacket_*) queueNode -> data.packetData;
+            queueNode_ *queueNode = queue_dequeue(mediaQueue);
+            rtpPacket_ *rtpPacket = (rtpPacket_*) queueNode -> data.packetData;
             /*print_rtpPacket(rtpPacket);*/
 
             if (send(output_Sockfd , rtpPacket , queueNode -> data.used , 0) == -1)
                 /*perror("send");*/;
 
-            queueNode -> next = NULL;
-            queueNode -> data.used = 0;
-            queue_enqueue(emptyQueue , queueNode);
-
-            printf("emptyQueue size: %d\n" , emptyQueue -> size);
-            printf("mediaQueue size: %d\n" , mediaQueue -> size);
-
+            freeNodeToEmptyQueue(emptyQueue , queueNode);
         }
 
         if(FD_ISSET(fecRow_Sockfd , &read_fds)) {
             int bytes = 0;
             if((bytes = recvfrom(fecRow_Sockfd , sockRecvBuf , recvBufLen , 0 , NULL , 0)) < 0)
                 fuckUpSituation("recvfrom() failed");
+
+            storePacketToQueue(fecQueue , emptyQueue , sockRecvBuf , bytes);
+            queueNode_ *queueNode = queue_dequeue(fecQueue);
+            freeNodeToEmptyQueue(emptyQueue , queueNode);
         }
 
         if(FD_ISSET(fecCol_Sockfd , &read_fds)) {
             int bytes = 0;
             if((bytes = recvfrom(fecCol_Sockfd , sockRecvBuf , recvBufLen , 0 , NULL , 0)) < 0)
                 fuckUpSituation("recvfrom() failed");
+
+            storePacketToQueue(fecQueue , emptyQueue , sockRecvBuf , bytes);
+            queueNode_ *queueNode = queue_dequeue(fecQueue);
+            freeNodeToEmptyQueue(emptyQueue , queueNode);
         }
     }
 
