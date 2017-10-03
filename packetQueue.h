@@ -92,16 +92,18 @@ int isEmpty(queue_ *queue) {
     }
 }
 
-int newNodeToEmptyQueue(queue_ *emptyQueue) {
+int newNodeToEmptyQueue(queue_ *emptyQueue , int quantity) {
     if(emptyQueue == NULL) {
         exit(1);
     }
     else {
-        queueNode_ *queueNode = (queueNode_*) malloc(2048 * sizeof(uint8_t));
-        queueNode -> data.size = 2048;
-        queueNode -> data.used = 0;
-        queueNode -> next = NULL;
-        queue_enqueue(emptyQueue , queueNode);
+        for (int i = 0 ; i < quantity ; i++) {
+            queueNode_ *queueNode = (queueNode_*) malloc(2048 * sizeof(uint8_t));
+            queueNode -> data.size = 2048;
+            queueNode -> data.used = 0;
+            queueNode -> next = NULL;
+            queue_enqueue(emptyQueue , queueNode);
+        }
         return 0;
     }
 }

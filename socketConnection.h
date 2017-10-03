@@ -107,7 +107,6 @@ int mCastClientConnectSocket(char* multicastIP , char* multicastPort , int multi
 
     struct ip_mreq multicastRequest;
     memcpy(&multicastRequest.imr_multiaddr , &((struct sockaddr_in*)(multicastAddr->ai_addr))->sin_addr , sizeof(multicastRequest.imr_multiaddr));
-
     multicastRequest.imr_interface.s_addr = htonl(INADDR_ANY);
 
     if(setsockopt(sockfd, IPPROTO_IP , IP_ADD_MEMBERSHIP , (char*) &multicastRequest , sizeof(multicastRequest)) != 0) {
