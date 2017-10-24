@@ -89,8 +89,77 @@ int main(int argc, char *argv[]) {
 
     newNodeToEmptyQueue(emptyQueue , 2048);
 
-    for(;;) {
+    queueNode_ *sendIndex = NULL;
+    int sendIndexAtTail = 0;
 
+    for(;;) {
+        if(isEmpty(mediaQueue)) {
+            sendIndexAtTail = 0;
+            sendIndex = NULL;
+        }
+        else if( (sendIndex == NULL) || ((sendIndexAtTail == 1) && (sendIndex -> next == NULL)) ) {
+            sendIndexAtTail = 0;
+            sendIndex = mediaQueue -> head;
+        }
+        else if( (sendIndexAtTail == 1) && (sendIndex -> next != NULL) ) {
+            sendIndexAtTail = 0;
+            sendIndex = sendIndex -> next;
+        }
+        else {
+            sendIndexAtTail = sendIndexAtTail;
+            sendIndex = sendIndex;
+        }
+
+        while(sendIndex != NULL) {
+            if(sendIndex -> data.used == 0) {
+                //去找到下一個 data used > 0 的 node
+                queueNode_ *tempIndex = sendIndex;
+
+                while(tempIndex -> next != NULL) {
+                    tempIndex = tempIndex -> next;
+                    if(tempIndex -> data.used > 0) {
+                        rtpPacket_ *rtpPacket = (rtpPacket_*) sendIndex -> data.packetData;
+                        uint32_t tempTS = rtpPacket -> rtpHeader.ts;
+
+                        if(currentTS == 0) {
+                            printf("currentTS fucked up\n");
+                            exit(1);
+                        }
+                        else {
+                            if(tempTS + 100000 < currentTS) {
+                                sendIndexAtTail = 0;
+                                sendIndex = tempIndex;
+                                break;
+                            }
+                            else {
+                                sendIndexAtTail = 0;
+                                break;
+                            }
+                        }
+                    }
+                }
+            }
+
+            rtpPacket_ *rtpPacket = (rtpPacket_*) sendIndex -> data.packetData;
+
+            printf("Sending Packet SN: %d\n", rtpPacket -> rtpHeader.sequenceNum);
+            if (send(output_Sockfd , rtpPacket , sendIndex -> data.used , 0) == -1)
+                /*perror("send");*/;
+
+            if(sendIndex -> next != NULL) {
+                sendIndexAtTail = 0;
+                sendIndex = sendIndex -> next;
+            }
+            else if(sendIndex == mediaQueue -> tail){
+                sendIndexAtTail = 1;
+                break;
+            }
+            else {
+                printf("queue management FUCKED UP!\n");
+                exit(1);
+            }
+
+        }
 
         read_fds = master;
         struct timeval tv = {0 , 50};

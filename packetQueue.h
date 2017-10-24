@@ -136,29 +136,34 @@ int freeNodeToEmptyQueue(queue_ *emptyQueue , queueNode_ *queueNode) {
 }
 
 int updateFECqueue(queue_ *fecQueue , queue_ *emptyQueue , uint16_t minSN) {
-    int deleteCounter = 0;
-    queueNode_ *queueNode = fecQueue -> head;
-
-    if( minSN == 0 || isEmpty(fecQueue) ) {
-        return -1;
+    if ((fecQueue == NULL) || (emptyQueue == NULL)) {
+        exit(1);
     }
+    else {
+        int deleteCounter = 0;
+        queueNode_ *queueNode = fecQueue -> head;
 
-    while(queueNode != NULL) {
-        fecPacket_ *fecPacket = (fecPacket_*) queueNode -> data.packetData;
-
-        if(fecPacket -> fecHeader.SNBase < minSN) {
-            queueNode = queue_dequeue(fecQueue);
-            freeNodeToEmptyQueue(emptyQueue , queueNode);
-            deleteCounter++;
+        if( minSN == 0 || isEmpty(fecQueue) ) {
+            return -1;
         }
 
-        if(queueNode -> next != NULL) {
-            queueNode = queueNode -> next;
+        while(queueNode != NULL) {
+            fecPacket_ *fecPacket = (fecPacket_*) queueNode -> data.packetData;
+
+            if(fecPacket -> fecHeader.SNBase < minSN) {
+                queueNode = queue_dequeue(fecQueue);
+                freeNodeToEmptyQueue(emptyQueue , queueNode);
+                deleteCounter++;
+            }
+
+            if(queueNode -> next != NULL) {
+                queueNode = queueNode -> next;
+            }
+            else {
+                break;
+            }
         }
-        else {
-            break;
-        }
+
+        return deleteCounter;
     }
-
-    return deleteCounter;
 }
