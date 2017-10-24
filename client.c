@@ -11,7 +11,6 @@
 #include <time.h>
 
 #include "socketConnection.h"
-#include "packetProcessor.h"
 #include "packetQueue.h"
 
 #define MULTICAST_SO_RCVBUF 1048576
@@ -23,6 +22,10 @@ int fecRow_Sockfd;
 int fecCol_Sockfd;
 int output_Sockfd;
 unsigned char *sockRecvBuf;
+
+uint16_t minSN = 0;
+uint16_t lastSN = 0;
+uint32_t currentTS = 0;
 
 static void fuckUpSituation(const char *errorMsg) {
     fprintf(stderr , "%s\n" , errorMsg);
@@ -87,23 +90,33 @@ int main(int argc, char *argv[]) {
     newNodeToEmptyQueue(emptyQueue , 2048);
 
     for(;;) {
+
+
         read_fds = master;
-        select(fdmax+1 , &read_fds , NULL , NULL , NULL);
+        struct timeval tv = {0 , 50};
+        select(fdmax+1 , &read_fds , NULL , NULL , &tv);
 
         if(FD_ISSET(media_Sockfd , &read_fds)) {
             int bytes = 0;
             if((bytes = recvfrom(media_Sockfd , sockRecvBuf , recvBufLen , 0 , NULL , 0)) < 0)
                 fuckUpSituation("recvfrom() failed");
 
+            rtpPacket_ *rtpPacket = (rtpPacket_*) sockRecvBuf;
+            uint16_t currentSN = rtpPacket -> rtpHeader.sequenceNum;
+
+            if( isEmpty(mediaQueue) || lastSN == 0 || minSN == 0 || (minSN > currentSN) ) {
+                minSN = currentSN;
+            }
+            else if( (currentSN - 1) > lastSN ) {
+                int emptyCounter = (currentSN - lastSN) - 1;
+                for(int i = 0 ; i < emptyCounter ; i++) {
+                    storePacketToQueue(mediaQueue , emptyQueue , sockRecvBuf , 0);
+                }
+            }
+
+            lastSN = currentSN;
+            currentTS = rtpPacket -> rtpHeader.ts;
             storePacketToQueue(mediaQueue , emptyQueue , sockRecvBuf , bytes);
-            queueNode_ *queueNode = queue_dequeue(mediaQueue);
-            rtpPacket_ *rtpPacket = (rtpPacket_*) queueNode -> data.packetData;
-            /*print_rtpPacket(rtpPacket);*/
-
-            if (send(output_Sockfd , rtpPacket , queueNode -> data.used , 0) == -1)
-                /*perror("send");*/;
-
-            freeNodeToEmptyQueue(emptyQueue , queueNode);
         }
 
         if(FD_ISSET(fecRow_Sockfd , &read_fds)) {
@@ -112,8 +125,7 @@ int main(int argc, char *argv[]) {
                 fuckUpSituation("recvfrom() failed");
 
             storePacketToQueue(fecQueue , emptyQueue , sockRecvBuf , bytes);
-            queueNode_ *queueNode = queue_dequeue(fecQueue);
-            freeNodeToEmptyQueue(emptyQueue , queueNode);
+            updateFECqueue(fecQueue , emptyQueue , minSN);
         }
 
         if(FD_ISSET(fecCol_Sockfd , &read_fds)) {
@@ -122,8 +134,7 @@ int main(int argc, char *argv[]) {
                 fuckUpSituation("recvfrom() failed");
 
             storePacketToQueue(fecQueue , emptyQueue , sockRecvBuf , bytes);
-            queueNode_ *queueNode = queue_dequeue(fecQueue);
-            freeNodeToEmptyQueue(emptyQueue , queueNode);
+            updateFECqueue(fecQueue , emptyQueue , minSN);
         }
     }
 

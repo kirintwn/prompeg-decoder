@@ -3,15 +3,16 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <string.h>
+#include "packetProcessor.h"
 
-typedef struct PacketContainer_ {
+typedef struct packetContainer_ {
     int size;
     int used;
     unsigned char packetData[0];
-} __attribute__((scalar_storage_order("big-endian"))) PacketContainer_;
+} __attribute__((scalar_storage_order("big-endian"))) packetContainer_;
 
 typedef struct queueNode_ {
-    PacketContainer_ data;
+    packetContainer_ data;
     struct queueNode_ *next;
 } queueNode_;
 
@@ -60,7 +61,7 @@ int queue_enqueue(queue_ *queue , queueNode_ *queueNode) {
     else {
         queue -> tail -> next = queueNode;
     }
-
+    /*queue -> next = NULL;                       bug why?????*/
     queue -> tail = queueNode;
     queue -> size++;
 
@@ -132,4 +133,32 @@ int freeNodeToEmptyQueue(queue_ *emptyQueue , queueNode_ *queueNode) {
         queue_enqueue(emptyQueue , queueNode);
         return 0;
     }
+}
+
+int updateFECqueue(queue_ *fecQueue , queue_ *emptyQueue , uint16_t minSN) {
+    int deleteCounter = 0;
+    queueNode_ *queueNode = fecQueue -> head;
+
+    if( minSN == 0 || isEmpty(fecQueue) ) {
+        return -1;
+    }
+
+    while(queueNode != NULL) {
+        fecPacket_ *fecPacket = (fecPacket_*) queueNode -> data.packetData;
+
+        if(fecPacket -> fecHeader.SNBase < minSN) {
+            queueNode = queue_dequeue(fecQueue);
+            freeNodeToEmptyQueue(emptyQueue , queueNode);
+            deleteCounter++;
+        }
+
+        if(queueNode -> next != NULL) {
+            queueNode = queueNode -> next;
+        }
+        else {
+            break;
+        }
+    }
+
+    return deleteCounter;
 }
