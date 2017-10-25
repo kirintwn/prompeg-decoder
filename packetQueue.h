@@ -8,7 +8,7 @@
 typedef struct packetContainer_ {
     int size;
     int used;
-    unsigned char packetData[0];
+    unsigned char *packetData;
 } __attribute__((scalar_storage_order("big-endian"))) packetContainer_;
 
 typedef struct queueNode_ {
@@ -54,14 +54,14 @@ int queue_enqueue(queue_ *queue , queueNode_ *queueNode) {
     if ((queue == NULL) || (queueNode == NULL)) {
         return -1;
     }
-
+    //queueNode -> next = NULL;//?????????bug
     if (isEmpty(queue)) {
         queue -> head = queueNode;
     }
     else {
         queue -> tail -> next = queueNode;
     }
-    /*queue -> next = NULL;                       bug why?????*/
+
     queue -> tail = queueNode;
     queue -> size++;
 
@@ -76,7 +76,14 @@ queueNode_ *queue_dequeue(queue_ *queue) {
     }
     else {
         queueNode = queue -> head;
-        queue -> head = queue -> head -> next;
+        if(queue -> head -> next != NULL) {
+            queue -> head = queue -> head -> next;
+        }
+        else {
+            queue -> head = NULL;
+        }
+
+        queueNode -> next = NULL;
         queue -> size--;
         return queueNode;
     }
@@ -99,7 +106,8 @@ int newNodeToEmptyQueue(queue_ *emptyQueue , int quantity) {
     }
     else {
         for (int i = 0 ; i < quantity ; i++) {
-            queueNode_ *queueNode = (queueNode_*) malloc(2048 * sizeof(uint8_t));
+            queueNode_ *queueNode = (queueNode_*) malloc(sizeof(queueNode_*));
+            queueNode -> data.packetData = (unsigned char *) malloc(2048 * sizeof(uint8_t));
             queueNode -> data.size = 2048;
             queueNode -> data.used = 0;
             queueNode -> next = NULL;
@@ -135,35 +143,8 @@ int freeNodeToEmptyQueue(queue_ *emptyQueue , queueNode_ *queueNode) {
     }
 }
 
-int updateFECqueue(queue_ *fecQueue , queue_ *emptyQueue , uint16_t minSN) {
-    if ((fecQueue == NULL) || (emptyQueue == NULL)) {
-        exit(1);
-    }
-    else {
-        int deleteCounter = 0;
-        queueNode_ *queueNode = fecQueue -> head;
-
-        if( minSN == 0 || isEmpty(fecQueue) ) {
-            return -1;
-        }
-
-        while(queueNode != NULL) {
-            fecPacket_ *fecPacket = (fecPacket_*) queueNode -> data.packetData;
-
-            if(fecPacket -> fecHeader.SNBase < minSN) {
-                queueNode = queue_dequeue(fecQueue);
-                freeNodeToEmptyQueue(emptyQueue , queueNode);
-                deleteCounter++;
-            }
-
-            if(queueNode -> next != NULL) {
-                queueNode = queueNode -> next;
-            }
-            else {
-                break;
-            }
-        }
-
-        return deleteCounter;
-    }
+void queueMonitor(queue_ *emptyQueue , queue_ *mediaQueue , queue_ *fecQueue) {
+    printf("emptyQueue size: %d\n", emptyQueue -> size);
+    printf("mediaQueue size: %d\n", mediaQueue -> size);
+    printf("fecQueue size: %d\n\n", fecQueue -> size);
 }

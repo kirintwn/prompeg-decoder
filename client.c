@@ -9,13 +9,14 @@
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
-
 #include "socketConnection.h"
-#include "packetQueue.h"
+#include "queueUpdater.h"
 
 #define MULTICAST_SO_RCVBUF 1048576
 #define STREAM_OUTPUT_IP "127.0.0.1"
 #define STREAM_OUTPUT_PORT "8000"
+
+int maxTime = 1;
 
 int media_Sockfd;
 int fecRow_Sockfd;
@@ -93,73 +94,53 @@ int main(int argc, char *argv[]) {
     int sendIndexAtTail = 0;
 
     for(;;) {
-        if(isEmpty(mediaQueue)) {
-            sendIndexAtTail = 0;
-            sendIndex = NULL;
-        }
-        else if( (sendIndex == NULL) || ((sendIndexAtTail == 1) && (sendIndex -> next == NULL)) ) {
-            sendIndexAtTail = 0;
-            sendIndex = mediaQueue -> head;
-        }
-        else if( (sendIndexAtTail == 1) && (sendIndex -> next != NULL) ) {
-            sendIndexAtTail = 0;
-            sendIndex = sendIndex -> next;
-        }
-        else {
-            sendIndexAtTail = sendIndexAtTail;
-            sendIndex = sendIndex;
-        }
+        /*set send flag and sendIndex position*/
+        int dontSendFlag = dontSend(sendIndex , sendIndexAtTail , mediaQueue);
+        sendIndex = sendIndex_Locator(sendIndex , sendIndexAtTail , mediaQueue);
 
-        while(sendIndex != NULL) {
+        while( (sendIndex != NULL) && (dontSendFlag == 0) ) {
             if(sendIndex -> data.used == 0) {
-                //去找到下一個 data used > 0 的 node
-                queueNode_ *tempIndex = sendIndex;
-
-                while(tempIndex -> next != NULL) {
-                    tempIndex = tempIndex -> next;
-                    if(tempIndex -> data.used > 0) {
-                        rtpPacket_ *rtpPacket = (rtpPacket_*) sendIndex -> data.packetData;
-                        uint32_t tempTS = rtpPacket -> rtpHeader.ts;
-
-                        if(currentTS == 0) {
-                            printf("currentTS fucked up\n");
-                            exit(1);
-                        }
-                        else {
-                            if(tempTS + 100000 < currentTS) {
-                                sendIndexAtTail = 0;
-                                sendIndex = tempIndex;
-                                break;
-                            }
-                            else {
-                                sendIndexAtTail = 0;
-                                break;
-                            }
-                        }
+                /*it's a reserved node*/
+                int reservedCounter = nextPacketTooLate(sendIndex , currentTS , maxTime);
+                if(reservedCounter == 0) {
+                    /*not too late*/
+                    sendIndexAtTail = 0;
+                    sendIndex = sendIndex;
+                    break;
+                }
+                else {
+                    /*too late, consecutive node: reservedCounter*/
+                    for (int i = 0 ; i < reservedCounter ; i++) {
+                        sendIndex = sendIndex -> next;
                     }
                 }
             }
 
             rtpPacket_ *rtpPacket = (rtpPacket_*) sendIndex -> data.packetData;
-
             printf("Sending Packet SN: %d\n", rtpPacket -> rtpHeader.sequenceNum);
             if (send(output_Sockfd , rtpPacket , sendIndex -> data.used , 0) == -1)
-                /*perror("send");*/;
+                perror("send");
 
+            //sendOneMediaPacket(output_Sockfd, sendIndex -> data.packetData , sendIndex -> data.used);
+            /*set sendIndexAtTail and next sendIndex position*/
             if(sendIndex -> next != NULL) {
-                sendIndexAtTail = 0;
+                printf("gg>>\n");
                 sendIndex = sendIndex -> next;
+                sendIndexAtTail = 0;
             }
-            else if(sendIndex == mediaQueue -> tail){
+            else if(sendIndex == mediaQueue -> tail) {
+                printf("gg\n");
                 sendIndexAtTail = 1;
                 break;
             }
             else {
-                printf("queue management FUCKED UP!\n");
+                printf("mediaQueue management fucked up!(2)\n");
                 exit(1);
             }
-
         }
+
+        updateMediaQueue(mediaQueue , emptyQueue , currentTS , maxTime);
+        minSN = getMinSN(mediaQueue);
 
         read_fds = master;
         struct timeval tv = {0 , 50};
@@ -186,6 +167,7 @@ int main(int argc, char *argv[]) {
             lastSN = currentSN;
             currentTS = rtpPacket -> rtpHeader.ts;
             storePacketToQueue(mediaQueue , emptyQueue , sockRecvBuf , bytes);
+            queueMonitor(emptyQueue , mediaQueue , fecQueue);
         }
 
         if(FD_ISSET(fecRow_Sockfd , &read_fds)) {
@@ -195,6 +177,7 @@ int main(int argc, char *argv[]) {
 
             storePacketToQueue(fecQueue , emptyQueue , sockRecvBuf , bytes);
             updateFECqueue(fecQueue , emptyQueue , minSN);
+            queueMonitor(emptyQueue , mediaQueue , fecQueue);
         }
 
         if(FD_ISSET(fecCol_Sockfd , &read_fds)) {
@@ -204,6 +187,7 @@ int main(int argc, char *argv[]) {
 
             storePacketToQueue(fecQueue , emptyQueue , sockRecvBuf , bytes);
             updateFECqueue(fecQueue , emptyQueue , minSN);
+            queueMonitor(emptyQueue , mediaQueue , fecQueue);
         }
     }
 
