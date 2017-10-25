@@ -4,11 +4,14 @@
   *Examples:
   *    >client 233.0.41.102 20000
  */
+#include <iostream>
 #include <unistd.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
+
+using namespace std;
 
 #include "socketConnection.h"
 #include "packetProcessor.h"
@@ -17,6 +20,8 @@
 #define MULTICAST_SO_RCVBUF 1048576
 #define STREAM_OUTPUT_IP "127.0.0.1"
 #define STREAM_OUTPUT_PORT "8000"
+
+packetBuffer *myPacketBuffer = new packetBuffer(2048);
 
 int media_Sockfd;
 int fecRow_Sockfd;
@@ -68,6 +73,7 @@ int main(int argc, char *argv[]) {
     if((media_Sockfd < 0) || (fecRow_Sockfd < 0) || (fecCol_Sockfd < 0) || (output_Sockfd < 0))
         fuckUpSituation("ConnectSocket failed");
 
+
     fd_set master;
     fd_set read_fds;
     FD_ZERO(&master);
@@ -80,30 +86,22 @@ int main(int argc, char *argv[]) {
 
     sockRecvBuf = (unsigned char*)malloc(recvBufLen * sizeof(unsigned char));
 
-    queue_ *emptyQueue = queue_construct();
-    queue_ *mediaQueue = queue_construct();
-    queue_ *fecQueue = queue_construct();
-
-    newNodeToEmptyQueue(emptyQueue , 2048);
-
     for(;;) {
+        //todo: 把太遲的media packet送出去
+        //      更新mediaQueue (base on currentTS)
+        //      更新minSN
+
         read_fds = master;
-        select(fdmax+1 , &read_fds , NULL , NULL , NULL);
+        struct timeval tv = {0 , 50};
+        select(fdmax+1 , &read_fds , NULL , NULL , &tv);
 
         if(FD_ISSET(media_Sockfd , &read_fds)) {
             int bytes = 0;
             if((bytes = recvfrom(media_Sockfd , sockRecvBuf , recvBufLen , 0 , NULL , 0)) < 0)
                 fuckUpSituation("recvfrom() failed");
 
-            storePacketToQueue(mediaQueue , emptyQueue , sockRecvBuf , bytes);
-            queueNode_ *queueNode = queue_dequeue(mediaQueue);
-            rtpPacket_ *rtpPacket = (rtpPacket_*) queueNode -> data.packetData;
-            /*print_rtpPacket(rtpPacket);*/
-
-            if (send(output_Sockfd , rtpPacket , queueNode -> data.used , 0) == -1)
-                /*perror("send");*/;
-
-            freeNodeToEmptyQueue(emptyQueue , queueNode);
+            myPacketBuffer -> newMediaPacket(sockRecvBuf , recvBufLen);
+            myPacketBuffer -> bufferMonitor();
         }
 
         if(FD_ISSET(fecRow_Sockfd , &read_fds)) {
@@ -111,9 +109,9 @@ int main(int argc, char *argv[]) {
             if((bytes = recvfrom(fecRow_Sockfd , sockRecvBuf , recvBufLen , 0 , NULL , 0)) < 0)
                 fuckUpSituation("recvfrom() failed");
 
-            storePacketToQueue(fecQueue , emptyQueue , sockRecvBuf , bytes);
-            queueNode_ *queueNode = queue_dequeue(fecQueue);
-            freeNodeToEmptyQueue(emptyQueue , queueNode);
+            myPacketBuffer -> newFecPacket(sockRecvBuf , recvBufLen);
+            myPacketBuffer -> updateFecQueue();
+            myPacketBuffer -> bufferMonitor();
         }
 
         if(FD_ISSET(fecCol_Sockfd , &read_fds)) {
@@ -121,9 +119,9 @@ int main(int argc, char *argv[]) {
             if((bytes = recvfrom(fecCol_Sockfd , sockRecvBuf , recvBufLen , 0 , NULL , 0)) < 0)
                 fuckUpSituation("recvfrom() failed");
 
-            storePacketToQueue(fecQueue , emptyQueue , sockRecvBuf , bytes);
-            queueNode_ *queueNode = queue_dequeue(fecQueue);
-            freeNodeToEmptyQueue(emptyQueue , queueNode);
+            myPacketBuffer -> newFecPacket(sockRecvBuf , recvBufLen);
+            myPacketBuffer -> updateFecQueue();
+            myPacketBuffer -> bufferMonitor();
         }
     }
 
