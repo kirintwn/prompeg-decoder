@@ -2,6 +2,7 @@
 #include <stdint.h>
 #include <string.h>
 #include "packetProcessor.h"
+#include "socketConnection.h"
 
 using namespace std;
 
@@ -20,6 +21,95 @@ class node {
             dataBuffer = (unsigned char*) malloc(2048 * sizeof(uint8_t));
         }
         ~node() {};
+        uint32_t getTS() {
+            if(dataUsed == 0) {
+                return 0;
+            }
+            else {
+                rtpPacket_ *rtpPacket = (rtpPacket_ *) dataBuffer;
+                return ntohl(rtpPacket -> rtpHeader.ts);
+            }
+        }
+        uint16_t getSN() {
+            if(dataUsed == 0) {
+                return 0;
+            }
+            else {
+                rtpPacket_ *rtpPacket = (rtpPacket_ *) dataBuffer;
+                return ntohs(rtpPacket -> rtpHeader.sequenceNum);
+            }
+        }
+
+        uint16_t getSNBase() {
+            if(dataUsed != 1344) {
+
+                printf("getSNBase: %d\n" , dataUsed);
+                exit(1);
+            }
+            else {
+                fecPacket_ *fecPacket = (fecPacket_ *) dataBuffer;
+                return ntohs(fecPacket -> fecHeader.SNBase);
+            }
+        }
+        uint8_t getOffset() {
+            if(dataUsed != 1344) {
+                printf("getOffset\n");
+                exit(1);
+            }
+            else {
+                fecPacket_ *fecPacket = (fecPacket_ *) dataBuffer;
+                return fecPacket -> fecHeader.offset;
+            }
+        }
+        uint8_t getNA() {
+            if(dataUsed != 1344) {
+                printf("getNA\n");
+                exit(1);
+            }
+            else {
+                fecPacket_ *fecPacket = (fecPacket_ *) dataBuffer;
+                return fecPacket -> fecHeader.NA;
+            }
+        }
+        int isTsToolate(uint32_t currentTS , int maxTimeRange) {
+            if(currentTS == 0) {
+                return 0;
+            }
+            else {
+                uint32_t thisTS = getTS();
+                if(thisTS + maxTimeRange < currentTS) {
+                    return 1;
+                }
+                else {
+                    return 0;
+                }
+            }
+        }
+        int isPacketToolate(uint32_t currentTS , int maxTimeRange) {
+            if(dataUsed > 0) {
+                return isTsToolate(currentTS , maxTimeRange);
+            }
+            else {
+                int counter = 1;
+                node *temp = this;
+                while(temp -> next) {
+                    temp = temp -> next;
+                    if(temp -> dataUsed > 0) {
+                        if(isTsToolate(currentTS , maxTimeRange)) {
+                            return counter;
+                        }
+                        else {
+                            return 0;
+                        }
+                    }
+                    else {
+                        counter++;
+                    }
+                }
+                printf("fucked up\n");
+                exit(1);
+            }
+        }
 };
 
 class queue {
@@ -90,7 +180,9 @@ class packetBuffer {
         uint16_t minSN;
         uint16_t lastSN;
         uint32_t currentTS;
+
         node *sendIndex;
+        int sendIndexAtTail;
         //////////////////////////////////
         packetBuffer() {
             emptyQueue = new queue();
@@ -105,7 +197,9 @@ class packetBuffer {
             minSN = 0;
             lastSN = 0;
             currentTS = 0;
+
             sendIndex = NULL;
+            sendIndexAtTail = 0;
         };
         packetBuffer(int quantity) {
             emptyQueue = new queue();
@@ -121,6 +215,7 @@ class packetBuffer {
             lastSN = 0;
             currentTS = 0;
             sendIndex = NULL;
+            sendIndexAtTail = 0;
         };
         ~packetBuffer() {};
 
@@ -169,16 +264,13 @@ class packetBuffer {
             fecQueue -> enqueue(temp);
         }
         void updateFecQueue() {
-            if( (minSN == 0) || (fecQueue -> isEmpty()) ) {
+            if( minSN == 0 || fecQueue -> isEmpty() ) {
                 return;
             }
             else {
                 node *temp = fecQueue -> head;
                 while(temp) {
-                    fecPacket_ *fecPacket = (fecPacket_*) temp -> dataBuffer;
-                    uint16_t tempSNBase = ntohs(fecPacket -> fecHeader.SNBase);
-
-                    if(tempSNBase < minSN) {
+                    if( (temp -> getSNBase()) < minSN ) {
                         temp = fecQueue -> dequeue();
                         freeNodeToEmptyQueue(temp);
                         temp = fecQueue -> head;
@@ -188,6 +280,114 @@ class packetBuffer {
                     }
                 }
                 return;
+            }
+        }
+        void mediaSender(int output_Sockfd , int maxTimeRange) {
+            if( mediaQueue -> isEmpty()) {
+                sendIndex = NULL;
+                return;
+            }
+            else if( !(sendIndex) && (mediaQueue -> head) ) {
+                sendIndex = mediaQueue -> head;
+            }
+            else if( sendIndexAtTail && !(sendIndex -> next) ) {
+                sendIndex = sendIndex;
+                return;
+            }
+            else if( sendIndexAtTail && (sendIndex -> next) ) {
+                sendIndex = sendIndex -> next;
+            }
+            else {
+                sendIndex = sendIndex;
+            }
+
+            while(sendIndex) {
+                if(sendIndex -> dataUsed == 0) {
+                    //check next non-empty node's TS
+                    int emptyCounter = sendIndex -> isPacketToolate(currentTS , maxTimeRange);
+                    if(emptyCounter == 0) {
+                        sendIndexAtTail = 0;
+                        sendIndex = sendIndex;
+                        break;
+                    }
+                    else {
+                        for (int i = 0 ; i < emptyCounter ; i++) {
+                            sendIndex = sendIndex -> next;
+                        }
+                    }
+                }
+
+                printf("Sending Packet SN: %d\n", sendIndex -> getSN());
+                if (send(output_Sockfd , sendIndex -> dataBuffer , sendIndex -> dataUsed , 0) == -1)
+                    perror("send");
+
+                if(sendIndex -> next) {
+                    sendIndex = sendIndex -> next;
+                    sendIndexAtTail = 0;
+                }
+                else if(sendIndex == mediaQueue -> tail) {
+                    sendIndex = sendIndex;
+                    sendIndexAtTail = 1;
+                    break;
+                }
+                else {
+                    printf("mediaQueue management fucked up!\n");
+                    exit(1);
+                }
+
+            }
+
+        }
+        void updateMediaQueue(int maxTimeRange) {
+            if( currentTS == 0 || mediaQueue -> isEmpty() ) {
+                return;
+            }
+            else {
+                node *temp = mediaQueue -> head;
+                while(temp) {
+                    if(temp -> dataUsed == 0) {
+                        int emptyCounter = temp -> isPacketToolate(currentTS , maxTimeRange);
+                        if(emptyCounter == 0) {
+                            return;
+                        }
+                        else {
+                            for (int i = 0 ; i < emptyCounter ; i++) {
+                                temp = mediaQueue -> dequeue();
+                                freeNodeToEmptyQueue(temp);
+                            }
+                            temp = mediaQueue -> head;
+                        }
+                    }
+                    else {
+                        int lateFlag = temp -> isPacketToolate(currentTS , maxTimeRange);
+                        if(lateFlag == 0) {
+                            return;
+                        }
+                        else {
+                            temp = mediaQueue -> dequeue();
+                            freeNodeToEmptyQueue(temp);
+                            temp = mediaQueue -> head;
+                        }
+                    }
+                }
+
+                return;
+            }
+        }
+        void updateMinSN() {
+            node *temp = mediaQueue -> head;
+            while(temp) {
+                if(temp -> dataUsed == 0 && temp -> next) {
+                    temp = temp -> next;
+                }
+                else if( temp -> dataUsed == 0 && !(temp -> next) ) {
+                    minSN = 0;
+                    return;
+                }
+                else if(temp -> dataUsed > 0) {
+                    minSN = temp -> getSN();
+                    return;
+                }
             }
         }
         void bufferMonitor() {
