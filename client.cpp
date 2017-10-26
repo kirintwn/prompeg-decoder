@@ -10,11 +10,10 @@
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
-
-using namespace std;
-
 #include "packetQueue.h"
 #define RECVBUFLEN 1500
+
+using namespace std;
 
 packetBuffer *myPacketBuffer = new packetBuffer(2048);
 

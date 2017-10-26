@@ -318,8 +318,8 @@ class packetBuffer {
                 }
 
                 printf("Sending Packet SN: %d\n", sendIndex -> getSN());
-                if (send(output_Sockfd , sendIndex -> dataBuffer , sendIndex -> dataUsed , 0) == -1)
-                    perror("send");
+                if (send(output_Sockfd , sendIndex -> dataBuffer , sendIndex -> dataUsed , 0) == -1);
+                    //perror("send");
 
                 if(sendIndex -> next) {
                     sendIndex = sendIndex -> next;
