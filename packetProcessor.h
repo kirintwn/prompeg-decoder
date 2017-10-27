@@ -1,9 +1,12 @@
+#include <iostream>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
 #include <string.h>
 #include <arpa/inet.h>
+
+using namespace std;
 
 #define CHECK_BIT(var, pos) !!((var) & (1 << (pos)))
 /*

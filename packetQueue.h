@@ -1,8 +1,8 @@
 #include <iostream>
 #include <stdint.h>
 #include <string.h>
-#include "packetProcessor.h"
 #include "socketConnection.h"
+#include "monitor.h"
 
 using namespace std;
 
@@ -317,7 +317,7 @@ class packetBuffer {
                     }
                 }
 
-                printf("Sending Packet SN: %d\n", sendIndex -> getSN());
+                //printf("Sending Packet SN: %d\n", sendIndex -> getSN());
                 if (send(output_Sockfd , sendIndex -> dataBuffer , sendIndex -> dataUsed , 0) == -1);
                     //perror("send");
 
