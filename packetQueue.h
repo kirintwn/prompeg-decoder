@@ -1,6 +1,7 @@
 #include <iostream>
 #include <stdint.h>
 #include <string.h>
+#include <vector>
 #include "socketConnection.h"
 #include "monitor.h"
 
@@ -180,9 +181,11 @@ class packetBuffer {
         uint16_t minSN;
         uint16_t lastSN;
         uint32_t currentTS;
+        uint32_t mediaSSRC;
 
         node *sendIndex;
         int sendIndexAtTail;
+        int recovered;
         //////////////////////////////////
         packetBuffer() {
             emptyQueue = new queue();
@@ -197,9 +200,10 @@ class packetBuffer {
             minSN = 0;
             lastSN = 0;
             currentTS = 0;
-
+            mediaSSRC = 0;
             sendIndex = NULL;
             sendIndexAtTail = 0;
+            recovered = 0;
         };
         packetBuffer(int quantity) {
             emptyQueue = new queue();
@@ -214,8 +218,10 @@ class packetBuffer {
             minSN = 0;
             lastSN = 0;
             currentTS = 0;
+            mediaSSRC = 0;
             sendIndex = NULL;
             sendIndexAtTail = 0;
+            recovered = 0;
         };
         ~packetBuffer() {};
 
@@ -255,6 +261,10 @@ class packetBuffer {
             temp -> next = NULL;
             memcpy(temp -> dataBuffer , buffer , length);
             mediaQueue -> enqueue(temp);
+
+            if(mediaSSRC == 0) {
+                mediaSSRC = ntohl(rtpPacket -> rtpHeader.ssrc);
+            }
         }
         void newFecPacket(const void *buffer, size_t length) {
             node *temp = emptyQueue -> dequeue();
@@ -269,18 +279,59 @@ class packetBuffer {
             }
             else {
                 node *temp = fecQueue -> head;
+                node *tempPrev = NULL;
+                node *tempNext = NULL;
+                temp = fecQueue -> head;
+
                 while(temp) {
                     if( (temp -> getSNBase()) < minSN ) {
-                        temp = fecQueue -> dequeue();
-                        freeNodeToEmptyQueue(temp);
-                        temp = fecQueue -> head;
+                        if(!temp -> next) {
+                            tempPrev = tempPrev;
+                            tempNext = NULL;
+                            fecDeleteNode(temp , tempPrev , NULL);
+                            break;
+                        }
+                        else {
+                            tempPrev = tempPrev;
+                            tempNext = temp -> next;
+                            fecDeleteNode(temp , tempPrev , tempNext);
+                            temp = tempNext;
+                            continue;
+                        }
                     }
                     else {
-                        return;
+                        if(!temp -> next) {
+                            break;
+                        }
+                        else {
+                            tempPrev = temp;
+                            tempNext = temp -> next;
+                            temp = tempNext;
+                            continue;
+                        }
                     }
                 }
+
                 return;
             }
+        }
+        void fecDeleteNode(node *target , node *targetPrev , node *targetNext) {
+            if(!targetPrev && targetNext) {
+                fecQueue -> head = targetNext;
+            }
+            else if(!targetPrev && !targetNext) {
+                fecQueue -> head = NULL;
+                fecQueue -> tail = NULL;
+            }
+            else if(targetPrev && targetNext) {
+                targetPrev -> next = targetNext;
+            }
+            else if(targetPrev && !targetNext) {
+                targetPrev -> next = NULL;
+                fecQueue -> tail = targetPrev;
+            }
+            fecQueue -> size--;
+            freeNodeToEmptyQueue(target);
         }
         void mediaSender(int output_Sockfd , int maxTimeRange) {
             if( mediaQueue -> isEmpty()) {
@@ -394,5 +445,170 @@ class packetBuffer {
             printf("emptyQueue size: %d\n", emptyQueue -> size);
             printf("mediaQueue size: %d\n", mediaQueue -> size);
             printf("fecQueue size: %d\n\n", fecQueue -> size);
+        }
+        int isRecoverable(uint16_t SNBase , uint8_t offset , uint8_t NA) {
+            node *temp = mediaQueue -> head;
+            int emptyCounter = 0;
+            if(temp) {
+                int differ = SNBase - temp -> getSN();
+                if(differ < 0) {
+                    //printf("gg , differ < 0: %d\n" , differ);
+                    printf("SNBase:%d , minSN:%d , headSN:%d\n", SNBase , minSN , temp->getSN());
+                    exit(1);
+                }
+                else {
+                    for(int i = 0 ; i < differ ; i++) {
+                        if(temp -> next) {
+                            temp = temp -> next;
+                        }
+                        else {
+                            return -1;
+                        }
+                    }
+
+                    if(temp -> dataUsed == 0) {
+                        emptyCounter++;
+                    }
+
+                    for(int i = 0 ; i < NA - 1 ; i++) {
+                        for(int j = 0 ; j < offset ; j++) {
+                            if(temp -> next) {
+                                temp = temp -> next;
+                            }
+                            else {
+                                return -1;
+                            }
+                        }
+                        if(temp -> dataUsed == 0) {
+                            emptyCounter++;
+                        }
+                    }
+                    return emptyCounter;
+                }
+            }
+            return -1;
+        }
+        void fecRecovery(int output_Sockfd) {
+            if(fecQueue -> isEmpty()) {
+                return;
+            }
+            else {
+                node *temp = fecQueue -> head;
+                node *tempPrev = NULL;
+                node *tempNext = NULL;
+                while(temp && temp -> dataUsed > 0) {
+                    int recoverFlag = isRecoverable(temp -> getSNBase() , temp -> getOffset() , temp -> getNA());
+                    if(recoverFlag == 0) {
+                        //delete
+                        if(!temp -> next) {
+                            tempPrev = tempPrev;
+                            tempNext = NULL;
+                            fecDeleteNode(temp , tempPrev , NULL);
+                            return;
+                        }
+                        else {
+                            tempPrev = tempPrev;
+                            tempNext = temp -> next;
+                            fecDeleteNode(temp , tempPrev , tempNext);
+                            temp = tempNext;
+                            continue;
+                        }
+                    }
+                    else if(recoverFlag == 1) {
+                        //recover and delete
+                        recoverPacket(output_Sockfd , temp);
+                        recovered++;
+
+                        if(!temp -> next) {
+                            tempPrev = tempPrev;
+                            tempNext = NULL;
+                            fecDeleteNode(temp , tempPrev , NULL);
+                            return;
+                        }
+                        else {
+                            tempPrev = tempPrev;
+                            tempNext = temp -> next;
+                            fecDeleteNode(temp , tempPrev , tempNext);
+                            temp = tempNext;
+                            continue;
+                        }
+                    }
+                    else if(recoverFlag > 1 || recoverFlag == -1) {
+                        tempPrev = temp;
+                        if(!temp -> next) {
+                            tempNext = NULL;
+                            return;
+                        }
+                        else {
+                            tempNext = temp -> next;
+                            temp = tempNext;
+                            continue;
+                        }
+                    }
+                }
+                return;
+            }
+        }
+        void recoverPacket(int output_Sockfd , node *fecNode) {
+            fecPacket_ *fecPacket = (fecPacket_ *) fecNode -> dataBuffer;
+
+            node *target = NULL;
+            uint16_t targetSN = 0;
+            //fecPacket -> fecHeader.tsRecovery
+            //fecPacket -> payload
+
+            node *temp = mediaQueue -> head;
+            int differ = fecNode -> getSNBase() - temp -> getSN();
+            for(int i = 0 ; i < differ ; i++) {
+                temp = temp -> next;
+            }
+
+            if(temp -> dataUsed == 0) {
+                target = temp;
+                targetSN = fecNode -> getSNBase();
+            }
+            else {
+                //xor
+                rtpPacket_ *tempRTP = (rtpPacket_ *) temp -> dataBuffer;
+                fecPacket -> fecHeader.tsRecovery ^= tempRTP -> rtpHeader.ts;
+                xor_slow(fecPacket -> payload , tempRTP -> payload , fecPacket -> payload , 1316);
+            }
+
+            for(int i = 0 ; i < fecNode -> getNA() - 1 ; i++) {
+                for(int j = 0 ; j < fecNode -> getOffset() ; j++) {
+                    temp = temp -> next;
+                }
+                if(temp -> dataUsed == 0) {
+                    target = temp;
+                    targetSN = fecNode -> getSNBase() + (i+1)*(fecNode -> getOffset());
+                }
+                else {
+                    //xor
+                    rtpPacket_ *tempRTP = (rtpPacket_ *) temp -> dataBuffer;
+                    fecPacket -> fecHeader.tsRecovery ^= tempRTP -> rtpHeader.ts;
+                    xor_slow(fecPacket -> payload , tempRTP -> payload , fecPacket -> payload , 1316);
+                }
+            }
+
+            target -> dataUsed = 1328;
+            rtpPacket_ *rtpPacket = (rtpPacket_ *) target -> dataBuffer;
+            rtpPacket -> rtpHeader.cc = 0;
+            rtpPacket -> rtpHeader.extension = 0;
+            rtpPacket -> rtpHeader.padding = 0;
+            rtpPacket -> rtpHeader.version = 2;
+            rtpPacket -> rtpHeader.pt = 33;
+            rtpPacket -> rtpHeader.marker = 0;
+            rtpPacket -> rtpHeader.sequenceNum = htons(targetSN);
+            rtpPacket -> rtpHeader.ts = fecPacket -> fecHeader.tsRecovery;
+            rtpPacket -> rtpHeader.ssrc = htonl(mediaSSRC);
+            memcpy ( rtpPacket -> payload , fecPacket -> payload , 1316 );
+
+            if (send(output_Sockfd , target -> dataBuffer , target -> dataUsed , 0) == -1);
+                //perror("send");
+        }
+        void xor_slow(uint8_t *in1, uint8_t *in2, uint8_t *out, int size) {
+            for (int i = 0 ; i < size ; i++) {
+                out[i] = in1[i] ^ in2[i];
+            }
         }
 };

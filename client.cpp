@@ -10,6 +10,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
+#include <pthread.h>
 #include "packetQueue.h"
 #define RECVBUFLEN 1500
 
@@ -17,6 +18,15 @@ using namespace std;
 
 packetBuffer *myPacketBuffer = new packetBuffer(2048);
 monitor *myMonitor = new monitor();
+
+void *threadproc(void *arg) {
+    while(1) {
+        sleep(2);
+        myPacketBuffer -> bufferMonitor();
+        myMonitor -> printMonitor();
+    }
+    return 0;
+}
 
 int main(int argc, char *argv[]) {
     char *multicastIP = (char*)malloc(20 * sizeof(char));
@@ -44,10 +54,20 @@ int main(int argc, char *argv[]) {
 
     read_fds = master;
 
+    pthread_t tid;
+    pthread_create(&tid, NULL, &threadproc, NULL);
+
     for(;;) {
-        myPacketBuffer -> mediaSender(mySocketUtility -> output_Sockfd , 10000);
-        myPacketBuffer -> updateMediaQueue(10000);
+        myPacketBuffer -> updateFecQueue();
+        myPacketBuffer -> fecRecovery(mySocketUtility -> output_Sockfd);
+        myPacketBuffer -> fecRecovery(mySocketUtility -> output_Sockfd);
+        myPacketBuffer -> fecRecovery(mySocketUtility -> output_Sockfd);
+        myPacketBuffer -> fecRecovery(mySocketUtility -> output_Sockfd);
+        myPacketBuffer -> mediaSender(mySocketUtility -> output_Sockfd , 20000);
+        myPacketBuffer -> updateMediaQueue(20000);
         myPacketBuffer -> updateMinSN();
+
+        myMonitor -> recovered = myPacketBuffer -> recovered;
 
         read_fds = master;
         struct timeval tv = {0 , 50};
@@ -60,8 +80,6 @@ int main(int argc, char *argv[]) {
 
             myMonitor -> media -> updateStatus(sockRecvBuf);
             myPacketBuffer -> newMediaPacket(sockRecvBuf , bytes);
-            //myPacketBuffer -> bufferMonitor();
-            myMonitor -> printMonitor();
         }
 
         if(FD_ISSET(mySocketUtility -> fecRow_Sockfd , &read_fds)) {
@@ -71,8 +89,6 @@ int main(int argc, char *argv[]) {
 
             myMonitor -> fecRow -> updateStatus(sockRecvBuf);
             myPacketBuffer -> newFecPacket(sockRecvBuf , bytes);
-            myPacketBuffer -> updateFecQueue();
-            //myPacketBuffer -> bufferMonitor();
         }
 
         if(FD_ISSET(mySocketUtility -> fecCol_Sockfd , &read_fds)) {
@@ -82,8 +98,6 @@ int main(int argc, char *argv[]) {
 
             myMonitor -> fecCol -> updateStatus(sockRecvBuf);
             myPacketBuffer -> newFecPacket(sockRecvBuf , bytes);
-            myPacketBuffer -> updateFecQueue();
-            //myPacketBuffer -> bufferMonitor();
         }
     }
 
