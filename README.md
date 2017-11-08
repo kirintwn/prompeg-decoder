@@ -7,6 +7,13 @@ This program acts as a proxy server that receives prompeg video stream from remo
 
 ***The project is currently under development***
 
+## To-Do
+- the original sending method is buggy
+	- very few recovered packet will be sent
+	- temp solution: send the recovered packet directly
+		- cause problem: out of sequence
+- xor_fast() with uint64_t implementation
+
 ## Requirement
 - Server:
     - FFmpeg (required version above 3.3)
@@ -27,11 +34,16 @@ ffmpeg server command:
     -me_method epzs -me_range 16 \
     -intra-refresh 1 \
     -f rtp_mpegts -strict -2 \
-    -fec prompeg=l=10:d=10 \
-    rtp://233.0.41.102:20000
+    -fec prompeg=l=4:d=4 \
+    rtp://239.0.0.1:20000
 ```
 
 ffplay client command:
 ```
 ffplay rtp://127.0.0.1:8000
+```
+## Usage
+```
+make
+./client <Multicast IP> <Multicast Port>
 ```
