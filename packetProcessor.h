@@ -5,10 +5,11 @@
 #include <unistd.h>
 #include <string.h>
 #include <arpa/inet.h>
+#define CHECK_BIT(var, pos) !!((var) & (1 << (pos)))
 
 using namespace std;
 
-#define CHECK_BIT(var, pos) !!((var) & (1 << (pos)))
+
 /*
     ==RTP packet==
     0                   1                   2                   3

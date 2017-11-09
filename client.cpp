@@ -1,9 +1,3 @@
-/*
-  *Usage:
-  *    client <Multicast IP> <Multicast Port>
-  *Examples:
-  *    >client 233.0.41.102 20000
- */
 #include <iostream>
 #include <unistd.h>
 #include <stdio.h>
@@ -59,10 +53,10 @@ int main(int argc, char *argv[]) {
 
     for(;;) {
         myPacketBuffer -> updateFecQueue();
-        myPacketBuffer -> fecRecovery(mySocketUtility -> output_Sockfd);
-        myPacketBuffer -> fecRecovery(mySocketUtility -> output_Sockfd);
-        myPacketBuffer -> fecRecovery(mySocketUtility -> output_Sockfd);
-        myPacketBuffer -> fecRecovery(mySocketUtility -> output_Sockfd);
+        myPacketBuffer -> fecRecovery();
+        myPacketBuffer -> fecRecovery();
+        myPacketBuffer -> fecRecovery();
+        myPacketBuffer -> fecRecovery();
         myPacketBuffer -> mediaSender(mySocketUtility -> output_Sockfd , 20000);
         myPacketBuffer -> updateMediaQueue(20000);
         myPacketBuffer -> updateMinSN();

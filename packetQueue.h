@@ -1,7 +1,6 @@
 #include <iostream>
 #include <stdint.h>
 #include <string.h>
-#include <vector>
 #include "socketConnection.h"
 #include "monitor.h"
 
@@ -40,10 +39,8 @@ class node {
                 return ntohs(rtpPacket -> rtpHeader.sequenceNum);
             }
         }
-
         uint16_t getSNBase() {
             if(dataUsed != 1344) {
-
                 printf("getSNBase: %d\n" , dataUsed);
                 exit(1);
             }
@@ -77,7 +74,7 @@ class node {
                 return 0;
             }
             else {
-                uint32_t thisTS = getTS();
+                uint32_t thisTS = this -> getTS();
                 if(thisTS + maxTimeRange < currentTS) {
                     return 1;
                 }
@@ -88,7 +85,8 @@ class node {
         }
         int isPacketToolate(uint32_t currentTS , int maxTimeRange) {
             if(dataUsed > 0) {
-                return isTsToolate(currentTS , maxTimeRange);
+                printf("gg: isPacketToolate()\n");
+                exit(1);
             }
             else {
                 int counter = 1;
@@ -96,7 +94,7 @@ class node {
                 while(temp -> next) {
                     temp = temp -> next;
                     if(temp -> dataUsed > 0) {
-                        if(isTsToolate(currentTS , maxTimeRange)) {
+                        if(temp -> isTsToolate(currentTS , maxTimeRange)) { //bug resolved!
                             return counter;
                         }
                         else {
@@ -125,7 +123,6 @@ class queue {
             size = 0;
         }
         ~queue() {};
-
         int isEmpty() {
             if(size == 0) {
                 return 1;
@@ -177,12 +174,10 @@ class packetBuffer {
         queue *emptyQueue;
         queue *mediaQueue;
         queue *fecQueue;
-
         uint16_t minSN;
         uint16_t lastSN;
         uint32_t currentTS;
         uint32_t mediaSSRC;
-
         node *sendIndex;
         int sendIndexAtTail;
         int recovered;
@@ -224,7 +219,6 @@ class packetBuffer {
             recovered = 0;
         };
         ~packetBuffer() {};
-
         void freeNodeToEmptyQueue(node *target) {
             if(target == NULL) {
                 printf("target is NULL\n");
@@ -243,7 +237,7 @@ class packetBuffer {
             if( mediaQueue -> isEmpty() || lastSN == 0 || minSN == 0 || (minSN > currentSN) ) {
                 minSN = currentSN;
             }
-            else if( (currentSN - 1) > lastSN ) {
+            if( (currentSN - 1) > lastSN && lastSN != 0 ) {
                 int emptyCounter = (currentSN - lastSN) - 1;
                 for(int i = 0 ; i < emptyCounter ; i++) {
                     node *temp = emptyQueue -> dequeue();
@@ -255,16 +249,15 @@ class packetBuffer {
 
             lastSN = currentSN;
             currentTS = ntohl(rtpPacket -> rtpHeader.ts);
+            if(mediaSSRC == 0) {
+                mediaSSRC = ntohl(rtpPacket -> rtpHeader.ssrc);
+            }
 
             node *temp = emptyQueue -> dequeue();
             temp -> dataUsed = length;
             temp -> next = NULL;
             memcpy(temp -> dataBuffer , buffer , length);
             mediaQueue -> enqueue(temp);
-
-            if(mediaSSRC == 0) {
-                mediaSSRC = ntohl(rtpPacket -> rtpHeader.ssrc);
-            }
         }
         void newFecPacket(const void *buffer, size_t length) {
             node *temp = emptyQueue -> dequeue();
@@ -341,11 +334,11 @@ class packetBuffer {
             else if( !(sendIndex) && (mediaQueue -> head) ) {
                 sendIndex = mediaQueue -> head;
             }
-            else if( sendIndexAtTail && !(sendIndex -> next) ) {
+            else if( sendIndexAtTail && sendIndex && !(sendIndex -> next) ) {
                 sendIndex = sendIndex;
                 return;
             }
-            else if( sendIndexAtTail && (sendIndex -> next) ) {
+            else if( sendIndexAtTail && sendIndex && (sendIndex -> next) ) {
                 sendIndex = sendIndex -> next;
             }
             else {
@@ -410,7 +403,7 @@ class packetBuffer {
                         }
                     }
                     else {
-                        int lateFlag = temp -> isPacketToolate(currentTS , maxTimeRange);
+                        int lateFlag = temp -> isTsToolate(currentTS , maxTimeRange);
                         if(lateFlag == 0) {
                             return;
                         }
@@ -488,7 +481,7 @@ class packetBuffer {
             }
             return -1;
         }
-        void fecRecovery(int output_Sockfd) {
+        void fecRecovery() {
             if(fecQueue -> isEmpty()) {
                 return;
             }
@@ -516,7 +509,7 @@ class packetBuffer {
                     }
                     else if(recoverFlag == 1) {
                         //recover and delete
-                        recoverPacket(output_Sockfd , temp);
+                        recoverPacket(temp);
                         recovered++;
 
                         if(!temp -> next) {
@@ -549,7 +542,7 @@ class packetBuffer {
                 return;
             }
         }
-        void recoverPacket(int output_Sockfd , node *fecNode) {
+        void recoverPacket(node *fecNode) {
             fecPacket_ *fecPacket = (fecPacket_ *) fecNode -> dataBuffer;
 
             node *target = NULL;
@@ -602,9 +595,6 @@ class packetBuffer {
             rtpPacket -> rtpHeader.ts = fecPacket -> fecHeader.tsRecovery;
             rtpPacket -> rtpHeader.ssrc = htonl(mediaSSRC);
             memcpy ( rtpPacket -> payload , fecPacket -> payload , 1316 );
-
-            if (send(output_Sockfd , target -> dataBuffer , target -> dataUsed , 0) == -1);
-                //perror("send");
         }
         void xor_slow(uint8_t *in1, uint8_t *in2, uint8_t *out, int size) {
             for (int i = 0 ; i < size ; i++) {

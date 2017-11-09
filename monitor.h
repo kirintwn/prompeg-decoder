@@ -52,6 +52,7 @@ class monitor {
             printf("media stream:\n");
             media -> printStatus();
             printf("    recovered/lost: %d/%d = %lf\n" , recovered , media -> lost , (100*recovered / (double)media -> lost));
+            printf("    loss rate after recovery: %d/%d = %lf\n" , (media -> lost - recovered) , (media -> recvd + media -> lost) , ( 100*(media -> lost - recovered) / (double)(media -> recvd + media -> lost) ) );
             printf("fecRow stream:\n");
             fecRow -> printStatus();
             printf("fecCol stream:\n");

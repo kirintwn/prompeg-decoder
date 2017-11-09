@@ -8,10 +8,6 @@ This program acts as a proxy server that receives prompeg video stream from remo
 ***The project is currently under development***
 
 ## To-Do
-- the original sending method is buggy
-	- very few recovered packet will be sent
-	- temp solution: send the recovered packet directly
-		- cause problem: out of sequence
 - xor_fast() with uint64_t implementation
 
 ## Requirement
