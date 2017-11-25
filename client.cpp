@@ -53,10 +53,7 @@ int main(int argc, char *argv[]) {
 
     for(;;) {
         myPacketBuffer -> updateFecQueue();
-        myPacketBuffer -> fecRecovery();
-        myPacketBuffer -> fecRecovery();
-        myPacketBuffer -> fecRecovery();
-        myPacketBuffer -> fecRecovery();
+        myPacketBuffer -> fecRecovery(4);
         myPacketBuffer -> mediaSender(mySocketUtility -> output_Sockfd , 20000);
         myPacketBuffer -> updateMediaQueue(20000);
         myPacketBuffer -> updateMinSN();

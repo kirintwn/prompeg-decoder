@@ -25,7 +25,7 @@ ffmpeg server command:
     -profile:v main \
     -preset faster \
     -tune zerolatency \
-    -b:v 3000k \
+    -b:v 1000k \
     -g 48 -refs 1 \
     -me_method epzs -me_range 16 \
     -intra-refresh 1 \

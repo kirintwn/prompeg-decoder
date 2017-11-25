@@ -481,65 +481,72 @@ class packetBuffer {
             }
             return -1;
         }
-        void fecRecovery() {
-            if(fecQueue -> isEmpty()) {
-                return;
-            }
-            else {
-                node *temp = fecQueue -> head;
-                node *tempPrev = NULL;
-                node *tempNext = NULL;
-                while(temp && temp -> dataUsed > 0) {
-                    int recoverFlag = isRecoverable(temp -> getSNBase() , temp -> getOffset() , temp -> getNA());
-                    if(recoverFlag == 0) {
-                        //delete
-                        if(!temp -> next) {
-                            tempPrev = tempPrev;
-                            tempNext = NULL;
-                            fecDeleteNode(temp , tempPrev , NULL);
-                            return;
+        void fecRecovery(int times) {
+            for(int i = 0 ; i < times ; i++) {
+                if(fecQueue -> isEmpty()) {
+                    return;
+                }
+                else {
+                    int FINflag = 0;
+                    node *temp = fecQueue -> head;
+                    node *tempPrev = NULL;
+                    node *tempNext = NULL;
+                    while(temp && temp -> dataUsed > 0) {
+                        int recoverFlag = isRecoverable(temp -> getSNBase() , temp -> getOffset() , temp -> getNA());
+                        if(recoverFlag == 0) {
+                            //delete
+                            if(!temp -> next) {
+                                tempPrev = tempPrev;
+                                tempNext = NULL;
+                                fecDeleteNode(temp , tempPrev , NULL);
+                                break;
+                            }
+                            else {
+                                tempPrev = tempPrev;
+                                tempNext = temp -> next;
+                                fecDeleteNode(temp , tempPrev , tempNext);
+                                temp = tempNext;
+                                continue;
+                            }
                         }
-                        else {
-                            tempPrev = tempPrev;
-                            tempNext = temp -> next;
-                            fecDeleteNode(temp , tempPrev , tempNext);
-                            temp = tempNext;
-                            continue;
-                        }
-                    }
-                    else if(recoverFlag == 1) {
-                        //recover and delete
-                        recoverPacket(temp);
-                        recovered++;
+                        else if(recoverFlag == 1) {
+                            //recover and delete
+                            recoverPacket(temp);
+                            recovered++;
+                            FINflag++;
 
-                        if(!temp -> next) {
-                            tempPrev = tempPrev;
-                            tempNext = NULL;
-                            fecDeleteNode(temp , tempPrev , NULL);
-                            return;
+                            if(!temp -> next) {
+                                tempPrev = tempPrev;
+                                tempNext = NULL;
+                                fecDeleteNode(temp , tempPrev , NULL);
+                                break;
+                            }
+                            else {
+                                tempPrev = tempPrev;
+                                tempNext = temp -> next;
+                                fecDeleteNode(temp , tempPrev , tempNext);
+                                temp = tempNext;
+                                continue;
+                            }
                         }
-                        else {
-                            tempPrev = tempPrev;
-                            tempNext = temp -> next;
-                            fecDeleteNode(temp , tempPrev , tempNext);
-                            temp = tempNext;
-                            continue;
+                        else if(recoverFlag > 1 || recoverFlag == -1) {
+                            tempPrev = temp;
+                            if(!temp -> next) {
+                                tempNext = NULL;
+                                break;
+                            }
+                            else {
+                                tempNext = temp -> next;
+                                temp = tempNext;
+                                continue;
+                            }
                         }
                     }
-                    else if(recoverFlag > 1 || recoverFlag == -1) {
-                        tempPrev = temp;
-                        if(!temp -> next) {
-                            tempNext = NULL;
-                            return;
-                        }
-                        else {
-                            tempNext = temp -> next;
-                            temp = tempNext;
-                            continue;
-                        }
+                    
+                    if(FINflag == 0) {
+                        return;
                     }
                 }
-                return;
             }
         }
         void recoverPacket(node *fecNode) {

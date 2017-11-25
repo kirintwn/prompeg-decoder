@@ -11,7 +11,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#define MULTICAST_SO_RCVBUF 1048576
+#define MULTICAST_SO_RCVBUF 10485760
 #define STREAM_OUTPUT_IP "127.0.0.1"
 #define STREAM_OUTPUT_PORT "8000"
 #define RECVBUFLEN 1500
