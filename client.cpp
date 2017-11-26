@@ -23,20 +23,32 @@ void *threadproc(void *arg) {
 }
 
 int main(int argc, char *argv[]) {
-    char *multicastIP = (char*)malloc(20 * sizeof(char));
-    char *mediaPort = (char*)malloc(10 * sizeof(char));
+    string multicastIP;
+    string mediaPort;
+    string fecTimes;
+    string maxDelay;
     unsigned char *sockRecvBuf = (unsigned char*)malloc(RECVBUFLEN * sizeof(unsigned char));
 
-    if(argc != 3) {
-        strcpy(multicastIP , "239.0.0.1");
-        strcpy(mediaPort , "20000");
+    if(argc == 3){
+        multicastIP = "239.0.0.1";
+        mediaPort = "20000";
+        fecTimes = argv[1];
+        maxDelay = argv[2];
     }
-    else {
+    else if(argc == 5) {
         multicastIP = argv[1];
         mediaPort = argv[2];
+        fecTimes = argv[3];
+        maxDelay = argv[4];
+    }
+    else {
+        multicastIP = "239.0.0.1";
+        mediaPort = "20000";
+        fecTimes = "10";
+        maxDelay = "50000";
     }
 
-    socketUtility *mySocketUtility = new socketUtility(multicastIP , mediaPort);
+    socketUtility *mySocketUtility = new socketUtility(multicastIP.c_str() , mediaPort.c_str());
 
     fd_set master;
     fd_set read_fds;
@@ -49,13 +61,12 @@ int main(int argc, char *argv[]) {
     read_fds = master;
 
     pthread_t tid;
-    pthread_create(&tid, NULL, &threadproc, NULL);
+    pthread_create(&tid, NULL , &threadproc, NULL);
 
     for(;;) {
         myPacketBuffer -> updateFecQueue();
-        myPacketBuffer -> fecRecovery(4);
-        myPacketBuffer -> mediaSender(mySocketUtility -> output_Sockfd , 20000);
-        myPacketBuffer -> updateMediaQueue(20000);
+        myPacketBuffer -> fecRecovery( stoi(fecTimes) );
+        myPacketBuffer -> updateMediaQueue( mySocketUtility -> output_Sockfd , stoi(maxDelay) );
         myPacketBuffer -> updateMinSN();
 
         myMonitor -> recovered = myPacketBuffer -> recovered;
@@ -66,7 +77,7 @@ int main(int argc, char *argv[]) {
 
         if(FD_ISSET(mySocketUtility -> media_Sockfd , &read_fds)) {
             int bytes = 0;
-            if((bytes = recvfrom(mySocketUtility -> media_Sockfd , sockRecvBuf , RECVBUFLEN , 0 , NULL , 0)) < 0)
+            if((bytes = recv(mySocketUtility -> media_Sockfd , sockRecvBuf , RECVBUFLEN , 0)) < 0)
                 mySocketUtility -> ~socketUtility();
 
             myMonitor -> media -> updateStatus(sockRecvBuf);
@@ -75,7 +86,7 @@ int main(int argc, char *argv[]) {
 
         if(FD_ISSET(mySocketUtility -> fecRow_Sockfd , &read_fds)) {
             int bytes = 0;
-            if((bytes = recvfrom(mySocketUtility -> fecRow_Sockfd , sockRecvBuf , RECVBUFLEN , 0 , NULL , 0)) < 0)
+            if((bytes = recv(mySocketUtility -> fecRow_Sockfd , sockRecvBuf , RECVBUFLEN , 0)) < 0)
                 mySocketUtility -> ~socketUtility();
 
             myMonitor -> fecRow -> updateStatus(sockRecvBuf);
@@ -84,7 +95,7 @@ int main(int argc, char *argv[]) {
 
         if(FD_ISSET(mySocketUtility -> fecCol_Sockfd , &read_fds)) {
             int bytes = 0;
-            if((bytes = recvfrom(mySocketUtility -> fecCol_Sockfd , sockRecvBuf , RECVBUFLEN , 0 , NULL , 0)) < 0)
+            if((bytes = recv(mySocketUtility -> fecCol_Sockfd , sockRecvBuf , RECVBUFLEN , 0)) < 0)
                 mySocketUtility -> ~socketUtility();
 
             myMonitor -> fecCol -> updateStatus(sockRecvBuf);

@@ -28,7 +28,7 @@ class socketUtility {
         int fdmax;
         unsigned char *sockRecvBuf;
         //////////////////////////////////
-        socketUtility(char* multicastIP , char* mediaPort) {
+        socketUtility(const char* multicastIP , const char* mediaPort) {
             char *fecRowPort = (char*)malloc(20);
             char *fecColPort = (char*)malloc(20);
             sprintf(fecRowPort , "%d" , atoi(mediaPort) + 4);
@@ -58,7 +58,7 @@ class socketUtility {
                 free(sockRecvBuf);
             exit(1);
         }
-        int mCastClientConnectSocket(char* multicastIP , char* multicastPort , int multicastRecvBufSize) {
+        int mCastClientConnectSocket(const char* multicastIP , const char* multicastPort , int multicastRecvBufSize) {
             int sockfd;
             struct addrinfo hints = { 0 };
             struct addrinfo* localAddr = 0;

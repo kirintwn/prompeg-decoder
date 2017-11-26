@@ -178,8 +178,6 @@ class packetBuffer {
         uint16_t lastSN;
         uint32_t currentTS;
         uint32_t mediaSSRC;
-        node *sendIndex;
-        int sendIndexAtTail;
         int recovered;
         //////////////////////////////////
         packetBuffer() {
@@ -196,8 +194,6 @@ class packetBuffer {
             lastSN = 0;
             currentTS = 0;
             mediaSSRC = 0;
-            sendIndex = NULL;
-            sendIndexAtTail = 0;
             recovered = 0;
         };
         packetBuffer(int quantity) {
@@ -214,8 +210,6 @@ class packetBuffer {
             lastSN = 0;
             currentTS = 0;
             mediaSSRC = 0;
-            sendIndex = NULL;
-            sendIndexAtTail = 0;
             recovered = 0;
         };
         ~packetBuffer() {};
@@ -326,63 +320,7 @@ class packetBuffer {
             fecQueue -> size--;
             freeNodeToEmptyQueue(target);
         }
-        void mediaSender(int output_Sockfd , int maxTimeRange) {
-            if( mediaQueue -> isEmpty()) {
-                sendIndex = NULL;
-                return;
-            }
-            else if( !(sendIndex) && (mediaQueue -> head) ) {
-                sendIndex = mediaQueue -> head;
-            }
-            else if( sendIndexAtTail && sendIndex && !(sendIndex -> next) ) {
-                sendIndex = sendIndex;
-                return;
-            }
-            else if( sendIndexAtTail && sendIndex && (sendIndex -> next) ) {
-                sendIndex = sendIndex -> next;
-            }
-            else {
-                sendIndex = sendIndex;
-            }
-
-            while(sendIndex) {
-                if(sendIndex -> dataUsed == 0) {
-                    //check next non-empty node's TS
-                    int emptyCounter = sendIndex -> isPacketToolate(currentTS , maxTimeRange);
-                    if(emptyCounter == 0) {
-                        sendIndexAtTail = 0;
-                        sendIndex = sendIndex;
-                        break;
-                    }
-                    else {
-                        for (int i = 0 ; i < emptyCounter ; i++) {
-                            sendIndex = sendIndex -> next;
-                        }
-                    }
-                }
-
-                //printf("Sending Packet SN: %d\n", sendIndex -> getSN());
-                if (send(output_Sockfd , sendIndex -> dataBuffer , sendIndex -> dataUsed , 0) == -1);
-                    //perror("send");
-
-                if(sendIndex -> next) {
-                    sendIndex = sendIndex -> next;
-                    sendIndexAtTail = 0;
-                }
-                else if(sendIndex == mediaQueue -> tail) {
-                    sendIndex = sendIndex;
-                    sendIndexAtTail = 1;
-                    break;
-                }
-                else {
-                    printf("mediaQueue management fucked up!\n");
-                    exit(1);
-                }
-
-            }
-
-        }
-        void updateMediaQueue(int maxTimeRange) {
+        void updateMediaQueue(int sockfd , int maxTimeRange) {
             if( currentTS == 0 || mediaQueue -> isEmpty() ) {
                 return;
             }
@@ -409,6 +347,8 @@ class packetBuffer {
                         }
                         else {
                             temp = mediaQueue -> dequeue();
+                            if (send(sockfd , temp -> dataBuffer , temp -> dataUsed , 0) == -1);
+                                //perror("send");
                             freeNodeToEmptyQueue(temp);
                             temp = mediaQueue -> head;
                         }
