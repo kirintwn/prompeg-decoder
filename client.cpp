@@ -5,22 +5,17 @@
 #include <string.h>
 #include <time.h>
 #include <pthread.h>
+#include "socketConnection.h"
 #include "packetQueue.h"
+#include "packetBuffer.h"
+#include "monitor.h"
 #define RECVBUFLEN 1500
 
 using namespace std;
 
+void *threadproc(void *arg);
 packetBuffer *myPacketBuffer = new packetBuffer(2048);
 monitor *myMonitor = new monitor();
-
-void *threadproc(void *arg) {
-    while(1) {
-        sleep(2);
-        myPacketBuffer -> bufferMonitor();
-        myMonitor -> printMonitor();
-    }
-    return 0;
-}
 
 int main(int argc, char *argv[]) {
     string multicastIP;
@@ -104,4 +99,13 @@ int main(int argc, char *argv[]) {
     }
 
     return 0; //never reached
+}
+
+void *threadproc(void *arg) {
+    while(1) {
+        sleep(2);
+        myPacketBuffer -> bufferMonitor();
+        myMonitor -> printMonitor();
+    }
+    return 0;
 }

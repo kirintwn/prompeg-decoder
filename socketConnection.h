@@ -1,3 +1,6 @@
+#ifndef INCLUDED_SOCKET_H
+#define INCLUDED_SOCKET_H
+
 #include <iostream>
 #include <errno.h>
 #include <sys/types.h>
@@ -218,3 +221,5 @@ class socketUtility {
            return ( ( max < c ) ? c : max );
         }
 };
+
+#endif

@@ -1,3 +1,6 @@
+#ifndef INCLUDED_PACKETPARSER_H
+#define INCLUDED_PACKETPARSER_H
+
 #include <iostream>
 #include <stdint.h>
 #include <stdio.h>
@@ -91,42 +94,4 @@ typedef struct fecPacket_ {
     uint8_t payload[1316];
 } __attribute__((packed)) fecPacket_; /*1344 bytes*/
 
-void print_rtpPacket (rtpPacket_ *rtpPacket) {
-    printf("   >> RTP\n");
-    printf("   Version     : %i\n" , rtpPacket->rtpHeader.version);
-    printf("   Padding     : %i\n" , rtpPacket->rtpHeader.padding);
-    printf("   Extension   : %i\n" , rtpPacket->rtpHeader.extension);
-    printf("   CC          : %i\n" , rtpPacket->rtpHeader.cc);
-    printf("   Marker      : %i\n" , rtpPacket->rtpHeader.marker);
-    printf("   Payload Type: %i\n" , rtpPacket->rtpHeader.pt);
-    printf("   Sequence    : %i\n" , ntohs(rtpPacket->rtpHeader.sequenceNum));
-    printf("   Timestamp   : %u\n" , ntohl(rtpPacket->rtpHeader.ts));
-    printf("   SSRC        : %u\n" , ntohl(rtpPacket->rtpHeader.ssrc));
-}
-void print_fecPacket (fecPacket_ *fecPacket) {
-    printf("   >> RTP\n");
-    printf("   Version     : %i\n" , fecPacket->rtpHeader.version);
-    printf("   Padding     : %i\n" , fecPacket->rtpHeader.padding);
-    printf("   Extension   : %i\n" , fecPacket->rtpHeader.extension);
-    printf("   CC          : %i\n" , fecPacket->rtpHeader.cc);
-    printf("   Marker      : %i\n" , fecPacket->rtpHeader.marker);
-    printf("   Payload Type: %i\n" , fecPacket->rtpHeader.pt);
-    printf("   Sequence    : %i\n" , ntohs(fecPacket->rtpHeader.sequenceNum));
-    printf("   Timestamp   : %u\n" , ntohl(fecPacket->rtpHeader.ts));
-    printf("   SSRC        : %u\n" , ntohl(fecPacket->rtpHeader.ssrc));
-
-    printf("   >> FEC\n");
-    printf("  SNBase          : %i\n" , ntohs(fecPacket->fecHeader.SNBase));
-    printf("  Length Recovery : %i\n" , ntohs(fecPacket->fecHeader.lengthRecovery));
-    printf("  Extension       : %i\n" , fecPacket->fecHeader.extension);
-    printf("  PT Recovery     : %i\n" , fecPacket->fecHeader.ptRecovery);
-    printf("  Mask            : %i\n" , fecPacket->fecHeader.mask);
-    printf("  TS Recovery     : %i\n" , ntohl(fecPacket->fecHeader.tsRecovery));
-    printf("  X               : %i\n" , fecPacket->fecHeader.x);
-    printf("  D               : %u\n" , fecPacket->fecHeader.dimension);
-    printf("  Type            : %u\n" , fecPacket->fecHeader.type);
-    printf("  Index           : %u\n" , fecPacket->fecHeader.index);
-    printf("  Offset          : %u\n" , fecPacket->fecHeader.offset);
-    printf("  NA              : %u\n" , fecPacket->fecHeader.NA);
-    printf("  SNBase Extension: %u\n" , fecPacket->fecHeader.SNBaseExtension);
-}
+#endif

@@ -1,8 +1,11 @@
+#ifndef INCLUDED_MONITOR_H
+#define INCLUDED_MONITOR_H
+
 #include <iostream>
 #include <stdint.h>
 #include <string.h>
 #include <arpa/inet.h>
-#include "packetProcessor.h"
+#include "packetParser.h"
 
 using namespace std;
 
@@ -60,3 +63,5 @@ class monitor {
             printf("\n");
         }
 };
+
+#endif
