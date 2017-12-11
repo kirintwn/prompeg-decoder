@@ -13,11 +13,11 @@ class streamCounter {
     public:
         int recvd;
         int lost;
-        uint16_t lastestSN;
+        uint16_t latestSN;
         streamCounter() {
             recvd = 0;
             lost = 0;
-            lastestSN = 0;
+            latestSN = 0;
         }
         ~streamCounter(){};
         void printStatus() {
@@ -27,13 +27,13 @@ class streamCounter {
             rtpHeader_ *rtpHeader = (rtpHeader_ *)buffer;
             uint16_t thisSN = ntohs(rtpHeader -> sequenceNum);
 
-            if( lastestSN > 0 && (thisSN - 1) > lastestSN ) {
-                int lostCounter = (thisSN - lastestSN) -1;
+            if( latestSN > 0 && (thisSN - 1) > latestSN ) {
+                int lostCounter = (thisSN - latestSN) -1;
                 lost+= lostCounter;
             }
 
             recvd++;
-            lastestSN = thisSN;
+            latestSN = thisSN;
             return;
         }
 };
@@ -51,6 +51,9 @@ class monitor {
             recovered = 0;
         }
         ~monitor(){};
+        void updateRecovered(int newRecovered) {
+            recovered = newRecovered;
+        }
         void printMonitor() {
             printf("media stream:\n");
             media -> printStatus();

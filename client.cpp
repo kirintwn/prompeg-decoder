@@ -18,32 +18,32 @@ packetBuffer *myPacketBuffer = new packetBuffer(2048);
 monitor *myMonitor = new monitor();
 
 int main(int argc, char *argv[]) {
-    string multicastIP;
+    string mediaIP;
     string mediaPort;
     string fecTimes;
     string maxDelay;
     unsigned char *sockRecvBuf = (unsigned char*)malloc(RECVBUFLEN * sizeof(unsigned char));
 
     if(argc == 3){
-        multicastIP = "239.0.0.1";
+        mediaIP = "239.0.0.1";
         mediaPort = "20000";
         fecTimes = argv[1];
         maxDelay = argv[2];
     }
     else if(argc == 5) {
-        multicastIP = argv[1];
+        mediaIP = argv[1];
         mediaPort = argv[2];
         fecTimes = argv[3];
         maxDelay = argv[4];
     }
     else {
-        multicastIP = "239.0.0.1";
+        mediaIP = "239.0.0.1";
         mediaPort = "20000";
         fecTimes = "10";
         maxDelay = "50000";
     }
 
-    socketUtility *mySocketUtility = new socketUtility(multicastIP.c_str() , mediaPort.c_str());
+    socketUtility *mySocketUtility = new socketUtility(mediaIP.c_str() , mediaPort.c_str());
 
     fd_set master;
     fd_set read_fds;
@@ -64,7 +64,7 @@ int main(int argc, char *argv[]) {
         myPacketBuffer -> updateMediaQueue( mySocketUtility -> output_Sockfd , stoi(maxDelay) );
         myPacketBuffer -> updateMinSN();
 
-        myMonitor -> recovered = myPacketBuffer -> recovered;
+        myMonitor -> updateRecovered(myPacketBuffer -> recovered);
 
         read_fds = master;
         struct timeval tv = {0 , 50};
@@ -103,7 +103,7 @@ int main(int argc, char *argv[]) {
 
 void *threadproc(void *arg) {
     while(1) {
-        sleep(2);
+        sleep(5);
         myPacketBuffer -> bufferMonitor();
         myMonitor -> printMonitor();
     }

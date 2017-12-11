@@ -290,7 +290,6 @@ class packetBuffer {
                         else if(recoverFlag == 1) {
                             //recover and delete
                             recoverPacket(temp);
-                            recovered++;
                             FINflag++;
 
                             if(!temp -> next) {
@@ -368,18 +367,27 @@ class packetBuffer {
                 }
             }
 
-            target -> dataUsed = 1328;
-            rtpPacket_ *rtpPacket = (rtpPacket_ *) target -> dataBuffer;
-            rtpPacket -> rtpHeader.cc = 0;
-            rtpPacket -> rtpHeader.extension = 0;
-            rtpPacket -> rtpHeader.padding = 0;
-            rtpPacket -> rtpHeader.version = 2;
-            rtpPacket -> rtpHeader.pt = 33;
-            rtpPacket -> rtpHeader.marker = 0;
-            rtpPacket -> rtpHeader.sequenceNum = htons(targetSN);
-            rtpPacket -> rtpHeader.ts = fecPacket -> fecHeader.tsRecovery;
-            rtpPacket -> rtpHeader.ssrc = htonl(mediaSSRC);
-            memcpy ( rtpPacket -> payload , fecPacket -> payload , 1316 );
+            if(target != NULL) {
+                target -> dataUsed = 1328;
+                rtpPacket_ *rtpPacket = (rtpPacket_ *) target -> dataBuffer;
+                rtpPacket -> rtpHeader.cc = 0;
+                rtpPacket -> rtpHeader.extension = 0;
+                rtpPacket -> rtpHeader.padding = 0;
+                rtpPacket -> rtpHeader.version = 2;
+                rtpPacket -> rtpHeader.pt = 33;
+                rtpPacket -> rtpHeader.marker = 0;
+                rtpPacket -> rtpHeader.sequenceNum = htons(targetSN);
+                rtpPacket -> rtpHeader.ts = fecPacket -> fecHeader.tsRecovery;
+                rtpPacket -> rtpHeader.ssrc = htonl(mediaSSRC);
+                memcpy ( rtpPacket -> payload , fecPacket -> payload , 1316 );
+
+                recovered++;
+            }
+            else {
+                cout << "gg" << endl;
+            }
+
+            
         }
         void xor_slow(uint8_t *in1, uint8_t *in2, uint8_t *out, int size) {
             for (int i = 0 ; i < size ; i++) {

@@ -14,7 +14,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#define MULTICAST_SO_RCVBUF 10485760
+#define SO_RCVBUF_SIZE 10485760
 #define STREAM_OUTPUT_IP "127.0.0.1"
 #define STREAM_OUTPUT_PORT "8000"
 #define RECVBUFLEN 1500
@@ -31,15 +31,15 @@ class socketUtility {
         int fdmax;
         unsigned char *sockRecvBuf;
         //////////////////////////////////
-        socketUtility(const char* multicastIP , const char* mediaPort) {
+        socketUtility(const char* mediaIP , const char* mediaPort) {
             char *fecRowPort = (char*)malloc(20);
             char *fecColPort = (char*)malloc(20);
             sprintf(fecRowPort , "%d" , atoi(mediaPort) + 4);
             sprintf(fecColPort , "%d" , atoi(mediaPort) + 2);
 
-            media_Sockfd = mCastClientConnectSocket(multicastIP , mediaPort , MULTICAST_SO_RCVBUF);
-            fecRow_Sockfd = mCastClientConnectSocket(multicastIP , fecRowPort , MULTICAST_SO_RCVBUF);
-            fecCol_Sockfd = mCastClientConnectSocket(multicastIP , fecColPort , MULTICAST_SO_RCVBUF);
+            media_Sockfd = listenSocket(mediaIP , mediaPort , SO_RCVBUF_SIZE);
+            fecRow_Sockfd = listenSocket(mediaIP , fecRowPort , SO_RCVBUF_SIZE);
+            fecCol_Sockfd = listenSocket(mediaIP , fecColPort , SO_RCVBUF_SIZE);
             output_Sockfd = uCastConnectSocket(STREAM_OUTPUT_IP , STREAM_OUTPUT_PORT);
 
             fdmax = maximumOfThreeNum(media_Sockfd , fecRow_Sockfd , fecCol_Sockfd);
@@ -61,35 +61,45 @@ class socketUtility {
                 free(sockRecvBuf);
             exit(1);
         }
-        int mCastClientConnectSocket(const char* multicastIP , const char* multicastPort , int multicastRecvBufSize) {
+        bool isMulticastAddress(const char* mediaIP) {
+            string IPstr(mediaIP);
+            string firstByteStr = IPstr.substr(0,3);
+            if(stoi(firstByteStr) >= 224) {
+                return true;
+            }
+            else {
+                return false;
+            }
+        }
+        int listenSocket(const char* mediaIP , const char* mediaPort , int recvBufSize) {
             int sockfd;
             struct addrinfo hints = { 0 };
             struct addrinfo* localAddr = 0;
-            struct addrinfo* multicastAddr = 0;
+            struct addrinfo* mediaAddr = 0;
             int yes = 1;
 
             hints.ai_family = AF_INET;
             hints.ai_flags = AI_NUMERICHOST;
 
             int addrInfoStatus;
-            if((addrInfoStatus = getaddrinfo(multicastIP , NULL , &hints , &multicastAddr)) != 0) {
+            if((addrInfoStatus = getaddrinfo(mediaIP , NULL , &hints , &mediaAddr)) != 0) {
                 if(localAddr)
                     freeaddrinfo(localAddr);
-                if(multicastAddr)
-                    freeaddrinfo(multicastAddr);
+                if(mediaAddr)
+                    freeaddrinfo(mediaAddr);
                 fprintf(stderr, "getaddrinfo: %s\n", gai_strerror(addrInfoStatus));
                 return -1;
             }
 
-            hints.ai_family = multicastAddr->ai_family;
+            hints.ai_family = mediaAddr->ai_family;
             hints.ai_socktype = SOCK_DGRAM;
             hints.ai_flags = AI_PASSIVE;
 
-            if((addrInfoStatus = getaddrinfo(NULL , multicastPort , &hints , &localAddr)) != 0) {
+            if((addrInfoStatus = getaddrinfo(NULL , mediaPort , &hints , &localAddr)) != 0) {
                 if(localAddr)
                     freeaddrinfo(localAddr);
-                if(multicastAddr)
-                    freeaddrinfo(multicastAddr);
+                if(mediaAddr)
+                    freeaddrinfo(mediaAddr);
                 fprintf(stderr, "getaddrinfo: %s\n", gai_strerror(addrInfoStatus));
                 return -1;
             }
@@ -98,8 +108,8 @@ class socketUtility {
                 perror("socket() failed");
                 if(localAddr)
                     freeaddrinfo(localAddr);
-                if(multicastAddr)
-                    freeaddrinfo(multicastAddr);
+                if(mediaAddr)
+                    freeaddrinfo(mediaAddr);
                 return -1;
             }
 
@@ -107,8 +117,8 @@ class socketUtility {
                 perror("setsockopt() failed");
                 if(localAddr)
                     freeaddrinfo(localAddr);
-                if(multicastAddr)
-                    freeaddrinfo(multicastAddr);
+                if(mediaAddr)
+                    freeaddrinfo(mediaAddr);
                 return -1;
             }
 
@@ -116,8 +126,8 @@ class socketUtility {
                 perror("bind() failed");
                 if(localAddr)
                     freeaddrinfo(localAddr);
-                if(multicastAddr)
-                    freeaddrinfo(multicastAddr);
+                if(mediaAddr)
+                    freeaddrinfo(mediaAddr);
                 return -1;
             }
 
@@ -129,49 +139,51 @@ class socketUtility {
                 perror("getsockopt failed");
                 if(localAddr)
                     freeaddrinfo(localAddr);
-                if(multicastAddr)
-                    freeaddrinfo(multicastAddr);
+                if(mediaAddr)
+                    freeaddrinfo(mediaAddr);
                 return -1;
             }
             defaultBuf = outputValue;
 
-            outputValue = multicastRecvBufSize;
+            outputValue = recvBufSize;
             if(setsockopt(sockfd , SOL_SOCKET , SO_RCVBUF , (char*)&outputValue , sizeof(outputValue)) != 0) {
                 perror("setsockopt failed");
                 if(localAddr)
                     freeaddrinfo(localAddr);
-                if(multicastAddr)
-                    freeaddrinfo(multicastAddr);
+                if(mediaAddr)
+                    freeaddrinfo(mediaAddr);
                 return -1;
             }
             if(getsockopt(sockfd , SOL_SOCKET , SO_RCVBUF , (char*)&outputValue , &outputValue_len) != 0) {
                 perror("getsockopt failed");
                 if(localAddr)
                     freeaddrinfo(localAddr);
-                if(multicastAddr)
-                    freeaddrinfo(multicastAddr);
+                if(mediaAddr)
+                    freeaddrinfo(mediaAddr);
                 return -1;
             }
 
-            printf("tried to set socket receive buffer from %d to %d, got %d\n", defaultBuf , multicastRecvBufSize , outputValue);
+            printf("tried to set socket receive buffer from %d to %d, got %d\n", defaultBuf , recvBufSize , outputValue);
 
-            struct ip_mreq multicastRequest;
-            memcpy(&multicastRequest.imr_multiaddr , &((struct sockaddr_in*)(multicastAddr->ai_addr))->sin_addr , sizeof(multicastRequest.imr_multiaddr));
-            multicastRequest.imr_interface.s_addr = htonl(INADDR_ANY);
+            if(isMulticastAddress(mediaIP)) {
+                struct ip_mreq multicastRequest;
+                memcpy(&multicastRequest.imr_multiaddr , &((struct sockaddr_in*)(mediaAddr->ai_addr))->sin_addr , sizeof(multicastRequest.imr_multiaddr));
+                multicastRequest.imr_interface.s_addr = htonl(INADDR_ANY);
 
-            if(setsockopt(sockfd, IPPROTO_IP , IP_ADD_MEMBERSHIP , (char*) &multicastRequest , sizeof(multicastRequest)) != 0) {
-                perror("setsockopt failed");
-                if(localAddr)
-                    freeaddrinfo(localAddr);
-                if(multicastAddr)
-                    freeaddrinfo(multicastAddr);
-                return -1;
+                if(setsockopt(sockfd, IPPROTO_IP , IP_ADD_MEMBERSHIP , (char*) &multicastRequest , sizeof(multicastRequest)) != 0) {
+                    perror("setsockopt failed");
+                    if(localAddr)
+                        freeaddrinfo(localAddr);
+                    if(mediaAddr)
+                        freeaddrinfo(mediaAddr);
+                    return -1;
+                }
             }
 
             if(localAddr)
                 freeaddrinfo(localAddr);
-            if(multicastAddr)
-                freeaddrinfo(multicastAddr);
+            if(mediaAddr)
+                freeaddrinfo(mediaAddr);
             return sockfd;
         }
         int uCastConnectSocket(const char* unicastIP , const char* unicastPort) {
