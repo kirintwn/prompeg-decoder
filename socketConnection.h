@@ -63,7 +63,7 @@ class socketUtility {
         }
         bool isMulticastAddress(const char* mediaIP) {
             string IPstr(mediaIP);
-            string firstByteStr = IPstr.substr(0,3);
+            string firstByteStr = IPstr.substr(0 , 3);
             if(stoi(firstByteStr) >= 224) {
                 return true;
             }
@@ -228,7 +228,7 @@ class socketUtility {
                 freeaddrinfo(res);
             return sockfd;
         }
-        int maximumOfThreeNum( int a, int b, int c ) {
+        int maximumOfThreeNum( int a , int b , int c ) {
            int max = ( a < b ) ? b : a;
            return ( ( max < c ) ? c : max );
         }

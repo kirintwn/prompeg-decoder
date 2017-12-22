@@ -259,8 +259,8 @@ class packetBuffer {
             }
             return -1;
         }
-        void fecRecovery(int times) {
-            for(int i = 0 ; i < times ; i++) {
+        void fecRecovery() {
+            for(;;) {
                 if(fecQueue -> isEmpty()) {
                     return;
                 }
@@ -389,7 +389,7 @@ class packetBuffer {
 
             
         }
-        void xor_slow(uint8_t *in1, uint8_t *in2, uint8_t *out, int size) {
+        void xor_slow(uint8_t *in1 , uint8_t *in2 , uint8_t *out , int size) {
             for (int i = 0 ; i < size ; i++) {
                 out[i] = in1[i] ^ in2[i];
             }

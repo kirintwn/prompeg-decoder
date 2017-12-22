@@ -21,14 +21,14 @@ class streamCounter {
         }
         ~streamCounter(){};
         void printStatus() {
-            printf("    recvd: %d , lost: %d , loss rate: %lf\n", recvd , lost , ( 100*lost / (double)(lost+recvd)));
+            printf("    recvd: %d , lost: %d , loss rate: %lf\n", recvd , lost , ( 100*lost / (double)(lost + recvd)));
         }
         void updateStatus(const void *buffer) {
             rtpHeader_ *rtpHeader = (rtpHeader_ *)buffer;
             uint16_t thisSN = ntohs(rtpHeader -> sequenceNum);
 
             if( latestSN > 0 && (thisSN - 1) > latestSN ) {
-                int lostCounter = (thisSN - latestSN) -1;
+                int lostCounter = (thisSN - latestSN) - 1;
                 lost+= lostCounter;
             }
 
@@ -57,8 +57,8 @@ class monitor {
         void printMonitor() {
             printf("media stream:\n");
             media -> printStatus();
-            printf("    recovered/lost: %d/%d = %lf\n" , recovered , media -> lost , (100*recovered / (double)media -> lost));
-            printf("    loss rate after recovery: %d/%d = %lf\n" , (media -> lost - recovered) , (media -> recvd + media -> lost) , ( 100*(media -> lost - recovered) / (double)(media -> recvd + media -> lost) ) );
+            printf("    recovered/lost: %d/%d = %lf\n" , recovered , media -> lost , (100 * recovered / (double)media -> lost));
+            printf("    loss rate after recovery: %d/%d = %lf\n" , (media -> lost - recovered) , (media -> recvd + media -> lost) , ( 100 * (media -> lost - recovered) / (double)(media -> recvd + media -> lost) ) );
             printf("fecRow stream:\n");
             fecRow -> printStatus();
             printf("fecCol stream:\n");

@@ -24,23 +24,20 @@ int main(int argc, char *argv[]) {
     string maxDelay;
     unsigned char *sockRecvBuf = (unsigned char*)malloc(RECVBUFLEN * sizeof(unsigned char));
 
-    if(argc == 3){
+    if(argc == 2) {
         mediaIP = "239.0.0.1";
         mediaPort = "20000";
-        fecTimes = argv[1];
-        maxDelay = argv[2];
+        maxDelay = argv[1];
     }
-    else if(argc == 5) {
+    else if(argc == 4) {
         mediaIP = argv[1];
         mediaPort = argv[2];
-        fecTimes = argv[3];
-        maxDelay = argv[4];
+        maxDelay = argv[3];
     }
     else {
         mediaIP = "239.0.0.1";
         mediaPort = "20000";
-        fecTimes = "10";
-        maxDelay = "50000";
+        maxDelay = "500";
     }
 
     socketUtility *mySocketUtility = new socketUtility(mediaIP.c_str() , mediaPort.c_str());
@@ -56,12 +53,12 @@ int main(int argc, char *argv[]) {
     read_fds = master;
 
     pthread_t tid;
-    pthread_create(&tid, NULL , &threadproc, NULL);
+    pthread_create(&tid , NULL , &threadproc , NULL);
 
     for(;;) {
         myPacketBuffer -> updateFecQueue();
-        myPacketBuffer -> fecRecovery( stoi(fecTimes) );
-        myPacketBuffer -> updateMediaQueue( mySocketUtility -> output_Sockfd , stoi(maxDelay) );
+        myPacketBuffer -> fecRecovery();
+        myPacketBuffer -> updateMediaQueue( mySocketUtility -> output_Sockfd , stoi(maxDelay) * 100 );
         myPacketBuffer -> updateMinSN();
 
         myMonitor -> updateRecovered(myPacketBuffer -> recovered);

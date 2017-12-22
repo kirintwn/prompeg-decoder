@@ -41,5 +41,5 @@ ffplay rtp://127.0.0.1:8000
 ## Usage
 ```
 make
-./client <Multicast IP> <Multicast Port> <FEC recovery times per loop> <Max delay in one in 1/100000 sec>
+./client <Multicast IP> <Multicast Port> <Max delay in ms>
 ```
