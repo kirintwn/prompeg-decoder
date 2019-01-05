@@ -1,6 +1,6 @@
 # prompeg decoder
 
->The project aiming to solve the well-known wireless multicast problem by forward error correction(FEC). The goal is to improve the performance of  wireless multicast video stream.
+>The project aims to solve the well-known wireless multicast problem by forward error correction(FEC). The goal is to improve the performance of  wireless multicast video stream.
 
 This program acts as a proxy server that receives prompeg video stream from remote FFmpeg server. It will recover the lost packet with the FEC stream, redirect the recovered stream to localhost, which is playable with FFplay.
 
