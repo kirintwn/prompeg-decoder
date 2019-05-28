@@ -22,25 +22,43 @@ int main(int argc, char *argv[]) {
     string mediaPort;
     string fecTimes;
     string maxDelay;
+    string outputIP;
+    string outputPort;
     unsigned char *sockRecvBuf = (unsigned char*)malloc(RECVBUFLEN * sizeof(unsigned char));
 
+    mediaIP = "239.255.0.1";
+    mediaPort = "20000";
+    outputIP = "127.0.0.1";
+    outputPort = "8000";
+    maxDelay = "500";
+
     if(argc == 2) {
-        mediaIP = "239.0.0.1";
-        mediaPort = "20000";
         maxDelay = argv[1];
+    }
+    else if(argc == 3) {
+        mediaIP = argv[1];
+        mediaPort = argv[2];
     }
     else if(argc == 4) {
         mediaIP = argv[1];
         mediaPort = argv[2];
-        maxDelay = argv[3];
+        maxDelay = argv[5];
     }
-    else {
-        mediaIP = "239.0.0.1";
-        mediaPort = "20000";
-        maxDelay = "500";
+    else if(argc == 5) {
+        mediaIP = argv[1];
+        mediaPort = argv[2];
+        outputIP = argv[3];
+        outputPort = argv[4];
+    }
+    else if(argc == 6) {
+        mediaIP = argv[1];
+        mediaPort = argv[2];
+        outputIP = argv[3];
+        outputPort = argv[4];
+        maxDelay = argv[5];
     }
 
-    socketUtility *mySocketUtility = new socketUtility(mediaIP.c_str() , mediaPort.c_str());
+    socketUtility *mySocketUtility = new socketUtility(mediaIP.c_str() , mediaPort.c_str(), outputIP.c_str() , outputPort.c_str());
 
     fd_set master;
     fd_set read_fds;
