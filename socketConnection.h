@@ -15,8 +15,6 @@
 #include <stdlib.h>
 #include <string.h>
 #define SO_RCVBUF_SIZE 10485760
-#define STREAM_OUTPUT_IP "127.0.0.1"
-#define STREAM_OUTPUT_PORT "8000"
 #define RECVBUFLEN 1500
 
 using namespace std;
@@ -31,7 +29,7 @@ class socketUtility {
         int fdmax;
         unsigned char *sockRecvBuf;
         //////////////////////////////////
-        socketUtility(const char* mediaIP , const char* mediaPort) {
+        socketUtility(const char* mediaIP , const char* mediaPort, const char* outputIP , const char* outputPort) {
             char *fecRowPort = (char*)malloc(20);
             char *fecColPort = (char*)malloc(20);
             sprintf(fecRowPort , "%d" , atoi(mediaPort) + 4);
@@ -40,7 +38,7 @@ class socketUtility {
             media_Sockfd = listenSocket(mediaIP , mediaPort , SO_RCVBUF_SIZE);
             fecRow_Sockfd = listenSocket(mediaIP , fecRowPort , SO_RCVBUF_SIZE);
             fecCol_Sockfd = listenSocket(mediaIP , fecColPort , SO_RCVBUF_SIZE);
-            output_Sockfd = uCastConnectSocket(STREAM_OUTPUT_IP , STREAM_OUTPUT_PORT);
+            output_Sockfd = uCastConnectSocket(outputIP , outputPort);
 
             fdmax = maximumOfThreeNum(media_Sockfd , fecRow_Sockfd , fecCol_Sockfd);
 
