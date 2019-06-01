@@ -59,16 +59,18 @@ class socketUtility {
                 free(sockRecvBuf);
             exit(1);
         }
+
         bool isMulticastAddress(const char* mediaIP) {
             string IPstr(mediaIP);
             string firstByteStr = IPstr.substr(0 , 3);
-            if(stoi(firstByteStr) >= 224) {
+            if(stoi(firstByteStr) >= 224 && stoi(firstByteStr) <= 239) {
                 return true;
             }
             else {
                 return false;
             }
         }
+
         int listenSocket(const char* mediaIP , const char* mediaPort , int recvBufSize) {
             int sockfd;
             struct addrinfo hints = { 0 };
