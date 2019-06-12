@@ -43,3 +43,8 @@ ffplay rtp://127.0.0.1:8000
 make
 ./client <Multicast IP> <Multicast Port> <Max delay in ms>
 ```
+
+## Docker Usage
+```
+docker run -it flaneurtv/prompeg-decoder <Multicast IP> <Multicast Port> <Output-Unicast IP> <Output Port> <Max delay in ms>
+```
