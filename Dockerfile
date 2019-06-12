@@ -17,8 +17,8 @@ COPY . /usr/src/
 
 RUN cd /usr/src && \
   make && \
-  cp client /usr/local/bin/prompeg && \
-  chmod +x /usr/local/bin/prompeg
+  cp client /usr/bin/prompegdec && \
+  chmod +x /usr/bin/prompegdec
 
 
 #################
@@ -32,7 +32,7 @@ LABEL license=MIT
 RUN apk update \
   && apk add bash libstdc++ libgcc
 
-COPY prompeg.sh /usr/local/bin/prompeg.sh
-COPY --from=builder /usr/local/bin/prompeg /usr/local/bin/prompeg
+# COPY prompeg.sh /usr/bin/prompeg.sh
+COPY --from=builder /usr/bin/prompegdec /usr/bin/prompegdec
 
-ENTRYPOINT /usr/local/bin/prompeg
+ENTRYPOINT /usr/bin/prompegdec
