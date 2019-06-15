@@ -29,6 +29,7 @@ class socketUtility {
         int fdmax;
         unsigned char *sockRecvBuf;
         //////////////////////////////////
+
         socketUtility(const char* mediaIP , const char* mediaPort, const char* outputIP , const char* outputPort) {
             char *fecRowPort = (char*)malloc(20);
             char *fecColPort = (char*)malloc(20);
@@ -38,7 +39,7 @@ class socketUtility {
             media_Sockfd = listenSocket(mediaIP , mediaPort , SO_RCVBUF_SIZE);
             fecRow_Sockfd = listenSocket(mediaIP , fecRowPort , SO_RCVBUF_SIZE);
             fecCol_Sockfd = listenSocket(mediaIP , fecColPort , SO_RCVBUF_SIZE);
-            output_Sockfd = uCastConnectSocket(outputIP , outputPort);
+            output_Sockfd = sendSocket(outputIP , outputPort);
 
             fdmax = maximumOfThreeNum(media_Sockfd , fecRow_Sockfd , fecCol_Sockfd);
 
@@ -46,6 +47,7 @@ class socketUtility {
 
 
         }
+
         ~socketUtility() {
             if(media_Sockfd >= 0)
                 close(media_Sockfd);
@@ -59,16 +61,18 @@ class socketUtility {
                 free(sockRecvBuf);
             exit(1);
         }
+
         bool isMulticastAddress(const char* mediaIP) {
             string IPstr(mediaIP);
             string firstByteStr = IPstr.substr(0 , 3);
-            if(stoi(firstByteStr) >= 224) {
+            if(stoi(firstByteStr) >= 224 && stoi(firstByteStr) <= 239) {
                 return true;
             }
             else {
                 return false;
             }
         }
+
         int listenSocket(const char* mediaIP , const char* mediaPort , int recvBufSize) {
             int sockfd;
             struct addrinfo hints = { 0 };
@@ -184,6 +188,44 @@ class socketUtility {
                 freeaddrinfo(mediaAddr);
             return sockfd;
         }
+
+        int multiCastConnectSocket(const char* multicastIP , const char* multicastPort) {
+            int sockfd;
+            struct addrinfo hints = { 0 };
+            struct addrinfo* res = 0;
+
+            hints.ai_family = AF_INET;
+            hints.ai_socktype = SOCK_DGRAM;
+
+            int addrInfoStatus;
+            if((addrInfoStatus = getaddrinfo(multicastIP , multicastPort , &hints , &res)) != 0) {
+                if(res)
+                    freeaddrinfo(res);
+                fprintf(stderr, "getaddrinfo: %s\n", gai_strerror(addrInfoStatus));
+                return -1;
+            }
+
+            if ((sockfd = socket(res->ai_family , res->ai_socktype , 0)) < 0) {
+                perror("socket() failed");
+                if(res)
+                    freeaddrinfo(res);
+                return -1;
+            }
+
+            // allow multiple sockets to use the same PORT number
+            u_int reuse_port = 1;
+            if (setsockopt(sockfd, IPPROTO_IP, IP_MULTICAST_LOOP, &reuse_port, sizeof(reuse_port)) < 0) {
+                perror("setsockopt() failed");
+                if(res)
+                    freeaddrinfo(res);
+                return -1;
+            }
+
+            if(res)
+                freeaddrinfo(res);
+            return sockfd;
+        }
+
         int uCastConnectSocket(const char* unicastIP , const char* unicastPort) {
             int sockfd;
             struct addrinfo hints = { 0 };
@@ -226,6 +268,14 @@ class socketUtility {
                 freeaddrinfo(res);
             return sockfd;
         }
+
+        int sendSocket(const char* recvIP , const char* recvPort) {
+            if(isMulticastAddress(recvIP))
+            	return multiCastConnectSocket(recvIP, recvPort);
+
+            return uCastConnectSocket(recvIP, recvPort);
+        }
+
         int maximumOfThreeNum( int a , int b , int c ) {
            int max = ( a < b ) ? b : a;
            return ( ( max < c ) ? c : max );
